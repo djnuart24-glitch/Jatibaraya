@@ -1,0 +1,358 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 620" width="100%" height="100%" fill="none">
+  <defs>
+    <!-- Globe Gradient -->
+    <radialGradient id="globeGrad" cx="40%" cy="38%" r="65%">
+      <stop offset="0%" stop-color="#38bdf8"/>
+      <stop offset="45%" stop-color="#0ea5e9"/>
+      <stop offset="85%" stop-color="#0284c7"/>
+      <stop offset="100%" stop-color="#0369a1"/>
+    </radialGradient>
+
+    <!-- Kujang Gold Gradient -->
+    <linearGradient id="kujangGrad" x1="20%" y1="0%" x2="80%" y2="100%">
+      <stop offset="0%" stop-color="#fef08a"/>
+      <stop offset="25%" stop-color="#facc15"/>
+      <stop offset="60%" stop-color="#f59e0b"/>
+      <stop offset="90%" stop-color="#ea580c"/>
+      <stop offset="100%" stop-color="#c2410c"/>
+    </linearGradient>
+
+    <linearGradient id="kujangHighlight" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#fffbeb" stop-opacity="0.8"/>
+      <stop offset="100%" stop-color="#f59e0b" stop-opacity="0"/>
+    </linearGradient>
+
+    <!-- Star Red Gradient -->
+    <linearGradient id="starGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f87171"/>
+      <stop offset="40%" stop-color="#ef4444"/>
+      <stop offset="80%" stop-color="#dc2626"/>
+      <stop offset="100%" stop-color="#991b1b"/>
+    </linearGradient>
+
+    <!-- Ribbon Gradient -->
+    <linearGradient id="ribbonGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#16a34a"/>
+      <stop offset="25%" stop-color="#22c55e"/>
+      <stop offset="50%" stop-color="#4ade80"/>
+      <stop offset="75%" stop-color="#22c55e"/>
+      <stop offset="100%" stop-color="#16a34a"/>
+    </linearGradient>
+
+    <linearGradient id="ribbonFoldGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#14532d"/>
+      <stop offset="100%" stop-color="#166534"/>
+    </linearGradient>
+
+    <!-- 3D Book Gradients -->
+    <linearGradient id="bookCoverGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#27272a"/>
+      <stop offset="60%" stop-color="#18181b"/>
+      <stop offset="100%" stop-color="#09090b"/>
+    </linearGradient>
+
+    <!-- Filters -->
+    <filter id="softGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#0284c7" flood-opacity="0.25"/>
+    </filter>
+    <filter id="starShadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="#7f1d1d" flood-opacity="0.35"/>
+    </filter>
+    <filter id="kujangShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="2" dy="4" stdDeviation="5" flood-color="#78350f" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+
+  <!-- 1. BOLA DUNIA (GLOBE) -->
+  <g id="globe-group" filter="url(#softGlow)">
+    <!-- Globe Base Sphere -->
+    <circle cx="265" cy="270" r="145" fill="url(#globeGrad)" stroke="#0284c7" stroke-width="3"/>
+
+    <!-- Globe Grid Lines (Latitudes & Longitudes) -->
+    <!-- Equator and parallels -->
+    <ellipse cx="265" cy="270" rx="145" ry="52" fill="none" stroke="#0369a1" stroke-width="2.2" opacity="0.85"/>
+    <ellipse cx="265" cy="215" rx="132" ry="42" fill="none" stroke="#0369a1" stroke-width="2" opacity="0.8"/>
+    <ellipse cx="265" cy="325" rx="132" ry="42" fill="none" stroke="#0369a1" stroke-width="2" opacity="0.8"/>
+    <ellipse cx="265" cy="170" rx="105" ry="32" fill="none" stroke="#0369a1" stroke-width="1.8" opacity="0.75"/>
+    <ellipse cx="265" cy="370" rx="105" ry="32" fill="none" stroke="#0369a1" stroke-width="1.8" opacity="0.75"/>
+
+    <!-- Meridians -->
+    <ellipse cx="265" cy="270" rx="60" ry="145" fill="none" stroke="#0369a1" stroke-width="2.2" opacity="0.85"/>
+    <ellipse cx="265" cy="270" rx="110" ry="145" fill="none" stroke="#0369a1" stroke-width="2" opacity="0.8"/>
+    <line x1="265" y1="125" x2="265" y2="415" stroke="#0369a1" stroke-width="2.2" opacity="0.85"/>
+  </g>
+
+  <!-- 2. TIGA BUKU / KITAB DALAM PERSPEKTIF 3D -->
+  <g id="books-group">
+    <!-- Shadow beneath the books -->
+    <ellipse cx="250" cy="335" rx="75" ry="25" fill="#000000" opacity="0.25"/>
+
+    <!-- Book 1 (Leftmost / Background) -->
+    <g transform="translate(185, 205)">
+      <!-- Left side spine -->
+      <polygon points="0,40 28,15 28,110 0,135" fill="#18181b" stroke="#09090b" stroke-width="1.5"/>
+      <!-- Top pages -->
+      <polygon points="28,15 90,52 64,74 0,40" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.2"/>
+      <line x1="26" y1="21" x2="84" y2="55" stroke="#94a3b8" stroke-width="1"/>
+      <line x1="22" y1="26" x2="78" y2="59" stroke="#94a3b8" stroke-width="1"/>
+      <!-- Front side pages/cover -->
+      <polygon points="0,40 64,74 64,168 0,135" fill="url(#bookCoverGrad)" stroke="#09090b" stroke-width="1.5"/>
+      <polygon points="64,74 90,52 90,145 64,168" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.2"/>
+      <!-- Page edge stripes -->
+      <line x1="68" y1="80" x2="88" y2="60" stroke="#94a3b8" stroke-width="0.8"/>
+      <line x1="68" y1="95" x2="88" y2="75" stroke="#94a3b8" stroke-width="0.8"/>
+      <line x1="68" y1="110" x2="88" y2="90" stroke="#94a3b8" stroke-width="0.8"/>
+      <line x1="68" y1="125" x2="88" y2="105" stroke="#94a3b8" stroke-width="0.8"/>
+      <line x1="68" y1="140" x2="88" y2="120" stroke="#94a3b8" stroke-width="0.8"/>
+      <line x1="68" y1="155" x2="88" y2="135" stroke="#94a3b8" stroke-width="0.8"/>
+    </g>
+
+    <!-- Book 2 (Middle) -->
+    <g transform="translate(205, 190)">
+      <!-- Top pages -->
+      <polygon points="28,15 92,52 64,74 0,40" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.2"/>
+      <line x1="26" y1="21" x2="86" y2="55" stroke="#94a3b8" stroke-width="1"/>
+      <line x1="22" y1="26" x2="80" y2="59" stroke="#94a3b8" stroke-width="1"/>
+      <!-- Spine & Cover -->
+      <polygon points="0,40 28,15 28,110 0,135" fill="#27272a" stroke="#09090b" stroke-width="1.5"/>
+      <polygon points="0,40 64,74 64,168 0,135" fill="url(#bookCoverGrad)" stroke="#09090b" stroke-width="1.5"/>
+      <!-- Pages side -->
+      <polygon points="64,74 92,52 92,145 64,168" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.2"/>
+      <line x1="68" y1="80" x2="90" y2="60" stroke="#94a3b8" stroke-width="0.8"/>
+      <line x1="68" y1="95" x2="90" y2="75" stroke="#94a3b8" stroke-width="0.8"/>
+      <line x1="68" y1="110" x2="90" y2="90" stroke="#94a3b8" stroke-width="0.8"/>
+      <line x1="68" y1="125" x2="90" y2="105" stroke="#94a3b8" stroke-width="0.8"/>
+      <line x1="68" y1="140" x2="90" y2="120" stroke="#94a3b8" stroke-width="0.8"/>
+      <line x1="68" y1="155" x2="90" y2="135" stroke="#94a3b8" stroke-width="0.8"/>
+    </g>
+
+    <!-- Book 3 (Rightmost / Foreground) -->
+    <g transform="translate(225, 175)">
+      <!-- Top pages -->
+      <polygon points="28,15 94,52 64,74 0,40" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.2"/>
+      <line x1="26" y1="21" x2="88" y2="55" stroke="#94a3b8" stroke-width="1"/>
+      <line x1="22" y1="26" x2="82" y2="59" stroke="#94a3b8" stroke-width="1"/>
+      <!-- Spine & Cover -->
+      <polygon points="0,40 28,15 28,110 0,135" fill="#18181b" stroke="#09090b" stroke-width="1.5"/>
+      <polygon points="0,40 64,74 64,168 0,135" fill="url(#bookCoverGrad)" stroke="#09090b" stroke-width="1.5"/>
+      <!-- White Pages side -->
+      <polygon points="64,74 94,52 94,145 64,168" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.2"/>
+      <line x1="68" y1="80" x2="92" y2="60" stroke="#94a3b8" stroke-width="0.8"/>
+      <line x1="68" y1="95" x2="92" y2="75" stroke="#94a3b8" stroke-width="0.8"/>
+      <line x1="68" y1="110" x2="92" y2="90" stroke="#94a3b8" stroke-width="0.8"/>
+      <line x1="68" y1="125" x2="92" y2="105" stroke="#94a3b8" stroke-width="0.8"/>
+      <line x1="68" y1="140" x2="92" y2="120" stroke="#94a3b8" stroke-width="0.8"/>
+      <line x1="68" y1="155" x2="92" y2="135" stroke="#94a3b8" stroke-width="0.8"/>
+    </g>
+  </g>
+
+  <!-- 3. KUJANG PASUNDAN (GOLDEN BLADE & TIGER HANDLE) -->
+  <g id="kujang-group" filter="url(#kujangShadow)">
+    <!-- Kujang Blade Body -->
+    <!-- Distinctive Sundanese Kujang shape with curved back, inner hook, decorative holes and hilt -->
+    <path
+      d="M246,62
+         C252,90 240,135 240,165
+         C240,195 264,228 270,250
+         C276,272 268,290 262,310
+         C256,325 248,328 245,335
+         C242,328 244,305 252,282
+         C258,265 258,245 252,230
+         C244,212 226,198 226,170
+         C226,145 240,110 246,62 Z"
+      fill="url(#kujangGrad)"
+      stroke="#b45309"
+      stroke-width="2"
+      stroke-linejoin="round"
+    />
+
+    <!-- Kujang Outer Spine with 3 Crests & Perforations (Mata Kujang) -->
+    <path
+      d="M246,62
+         C255,80 275,115 288,145
+         C298,168 300,195 292,225
+         C284,255 266,285 245,335
+         C260,305 272,280 280,250
+         C288,220 286,190 278,165
+         C268,135 254,100 246,62 Z"
+      fill="url(#kujangGrad)"
+      stroke="#d97706"
+      stroke-width="2"
+    />
+
+    <!-- Three Eyes (Mata Kujang / Perforations on the back ridge) -->
+    <!-- Hole 1 -->
+    <circle cx="254" cy="142" r="5.5" fill="#ffffff" stroke="#b45309" stroke-width="2"/>
+    <!-- Hole 2 -->
+    <circle cx="269" cy="172" r="6" fill="#ffffff" stroke="#b45309" stroke-width="2"/>
+    <!-- Hole 3 -->
+    <circle cx="274" cy="204" r="6" fill="#ffffff" stroke="#b45309" stroke-width="2"/>
+    <!-- Decorative minor scallops on back spine -->
+    <circle cx="276" cy="225" r="4.5" fill="#f59e0b" stroke="#b45309" stroke-width="1.5"/>
+    <circle cx="272" cy="245" r="4" fill="#f59e0b" stroke="#b45309" stroke-width="1.5"/>
+
+    <!-- Inner Hook (Tadaga / Pamor Kujang) -->
+    <path
+      d="M228,210
+         C235,230 250,248 260,250
+         C270,252 268,265 258,266
+         C240,266 220,240 228,210 Z"
+      fill="url(#kujangGrad)"
+      stroke="#b45309"
+      stroke-width="1.8"
+    />
+
+    <!-- Crossguard (Pamor / Batas Gagang) -->
+    <path
+      d="M230,332
+         L278,332
+         C282,332 284,337 282,342
+         L276,346
+         L232,346
+         L226,342
+         C224,337 226,332 230,332 Z"
+      fill="#facc15"
+      stroke="#b45309"
+      stroke-width="2"
+    />
+
+    <!-- Handle (Gagang Kujang / Sirah Maung - Tiger Head) -->
+    <!-- Sweeps downward and to the bottom-left -->
+    <path
+      d="M256,346
+         L268,350
+         C272,375 272,410 262,445
+         C258,460 250,470 236,478
+         C224,484 212,476 216,464
+         C220,452 230,448 238,446
+         C232,442 225,442 220,436
+         C214,430 220,422 228,422
+         C234,422 242,426 248,418
+         C255,408 256,380 252,346 Z"
+      fill="url(#kujangGrad)"
+      stroke="#b45309"
+      stroke-width="2"
+    />
+
+    <!-- Tiger Head Details (Snout, Eye, Ear) -->
+    <!-- Jaw / Mouth -->
+    <path
+      d="M224,468
+         C216,465 210,472 216,482
+         C224,488 234,486 240,476"
+      fill="none"
+      stroke="#78350f"
+      stroke-width="2"
+    />
+    <!-- Eye of Tiger -->
+    <ellipse cx="236" cy="454" rx="3.5" ry="2.5" fill="#78350f"/>
+    <!-- Whisker/Carving ridges on hilt -->
+    <path d="M246,370 C240,378 240,388 246,396" fill="none" stroke="#b45309" stroke-width="1.8"/>
+    <path d="M248,402 C242,410 242,420 248,428" fill="none" stroke="#b45309" stroke-width="1.8"/>
+  </g>
+
+  <!-- 4. SEMBILAN BINTANG MERAH (9 WALISONGO STARS) -->
+  <!-- Curving around upper left: from 9 o'clock to 12 o'clock -->
+  <g id="stars-group" filter="url(#starShadow)">
+    <!-- Star 1 (Bottom Left, near ribbon) -->
+    <!-- Star definition macro with cx, cy, radius -->
+    <!-- 1. cx: 78, cy: 365, r: 16 -->
+    <polygon points="
+      78,349 83,361 95,361 85,369 89,380 78,373 67,380 71,369 61,361 73,361"
+      fill="url(#starGrad)" stroke="#7f1d1d" stroke-width="1.2"/>
+
+    <!-- 2. cx: 58, cy: 305, r: 17 -->
+    <polygon points="
+      58,288 63,301 76,301 65,309 69,321 58,314 47,321 51,309 40,301 53,301"
+      fill="url(#starGrad)" stroke="#7f1d1d" stroke-width="1.2"/>
+
+    <!-- 3. cx: 48, cy: 242, r: 18 -->
+    <polygon points="
+      48,224 54,237 68,237 57,246 61,259 48,251 35,259 39,246 28,237 42,237"
+      fill="url(#starGrad)" stroke="#7f1d1d" stroke-width="1.2"/>
+
+    <!-- 4. cx: 52, cy: 180, r: 18 -->
+    <polygon points="
+      52,162 58,175 72,175 61,184 65,197 52,189 39,197 43,184 32,175 46,175"
+      fill="url(#starGrad)" stroke="#7f1d1d" stroke-width="1.2"/>
+
+    <!-- 5. cx: 72, cy: 125, r: 18 -->
+    <polygon points="
+      72,107 78,120 92,120 81,129 85,142 72,134 59,142 63,129 52,120 66,120"
+      fill="url(#starGrad)" stroke="#7f1d1d" stroke-width="1.2"/>
+
+    <!-- 6. cx: 104, cy: 82, r: 18 -->
+    <polygon points="
+      104,64 110,77 124,77 113,86 117,99 104,91 91,99 95,86 84,77 98,77"
+      fill="url(#starGrad)" stroke="#7f1d1d" stroke-width="1.2"/>
+
+    <!-- 7. cx: 148, cy: 52, r: 18 -->
+    <polygon points="
+      148,34 154,47 168,47 157,56 161,69 148,61 135,69 139,56 128,47 142,47"
+      fill="url(#starGrad)" stroke="#7f1d1d" stroke-width="1.2"/>
+
+    <!-- 8. cx: 198, cy: 38, r: 18 -->
+    <polygon points="
+      198,20 204,33 218,33 207,42 211,55 198,47 185,55 189,42 178,33 192,33"
+      fill="url(#starGrad)" stroke="#7f1d1d" stroke-width="1.2"/>
+
+    <!-- 9. cx: 250, cy: 35, r: 19 (Apex / Top Star) -->
+    <polygon points="
+      250,16 256,30 271,30 259,39 264,53 250,44 236,53 241,39 229,30 244,30"
+      fill="url(#starGrad)" stroke="#7f1d1d" stroke-width="1.3"/>
+  </g>
+
+  <!-- 5. PITA HIJAU & TULISAN ARAB "جاتي برايا" -->
+  <g id="ribbon-group">
+    <!-- Ribbon Shadow -->
+    <path
+      d="M70,460 C180,515 350,515 460,460 L450,475 C345,530 185,530 80,475 Z"
+      fill="#000000"
+      opacity="0.2"
+    />
+
+    <!-- Left Ribbon Tail / Folded Underside -->
+    <polygon points="50,465 92,448 92,488 40,495 55,480" fill="url(#ribbonFoldGrad)" stroke="#0f3b1e" stroke-width="1.5"/>
+    <polygon points="40,495 85,485 85,515 30,522 50,508" fill="#15803d" stroke="#0f3b1e" stroke-width="1.5"/>
+
+    <!-- Right Ribbon Tail / Folded Underside -->
+    <polygon points="480,465 438,448 438,488 490,495 475,480" fill="url(#ribbonFoldGrad)" stroke="#0f3b1e" stroke-width="1.5"/>
+    <polygon points="490,495 445,485 445,515 500,522 480,508" fill="#15803d" stroke="#0f3b1e" stroke-width="1.5"/>
+
+    <!-- Main Curved Green Banner -->
+    <path
+      d="M65,465
+         C170,518 360,518 465,465
+         L455,515
+         C355,568 175,568 75,515 Z"
+      fill="url(#ribbonGrad)"
+      stroke="#14532d"
+      stroke-width="2"
+      stroke-linejoin="round"
+    />
+
+    <!-- Ribbon Highlight Edge -->
+    <path
+      d="M68,467 C172,519 358,519 462,467"
+      fill="none"
+      stroke="#bbf7d0"
+      stroke-width="2"
+      opacity="0.8"
+    />
+
+    <!-- ARABIC CALLIGRAPHY: "جاتي برايا" -->
+    <!-- Rendered along the curvature of the banner -->
+    <text
+      x="265"
+      y="528"
+      text-anchor="middle"
+      font-family="'Amiri', 'Traditional Arabic', 'Scheherazade New', 'Noto Naskh Arabic', 'Geeza Pro', serif"
+      font-size="44"
+      font-weight="bold"
+      fill="#092612"
+      letter-spacing="2"
+    >
+      جاتي برايا
+    </text>
+  </g>
+</svg>

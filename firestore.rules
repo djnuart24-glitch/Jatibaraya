@@ -1,0 +1,15 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Public website content & admin management
+    match /content/{docId} {
+      allow read: if true;
+      allow write: if true;
+    }
+  }
+}
