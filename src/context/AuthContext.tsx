@@ -191,30 +191,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   // Helper to verify a passcode against cloud or default hashes
-  const verifyPasscode = async (passcode: string): Promise<boolean> => {
+  const verifyPasscode = async (passcode: string, activeCred?: AdminCredentialData | null): Promise<boolean> => {
     const inputHash = await sha256(passcode.trim());
 
-    // 1. If cloud credential exists in state or local cache, check it
-    if (cloudCredential && cloudCredential.passwordHash) {
-      if (inputHash === cloudCredential.passwordHash) {
-        return true;
-      }
+    // 1. If an active credential exists from Firestore, ONLY this hash is valid!
+    // The initial default passwords (jatibaraya2026, admin123) are strictly invalidated.
+    if (activeCred && activeCred.passwordHash) {
+      return inputHash === activeCred.passwordHash;
     }
 
-    // 2. Also check direct localStorage cache in case Firestore is still booting
+    // 2. If no activeCred was passed, check in-memory cloudCredential state
+    if (cloudCredential && cloudCredential.passwordHash) {
+      return inputHash === cloudCredential.passwordHash;
+    }
+
+    // 3. Also check direct localStorage cache in case Firestore is reconnecting
     try {
       const cached = localStorage.getItem(LOCAL_CRED_KEY);
       if (cached) {
         const parsed = JSON.parse(cached) as AdminCredentialData;
-        if (parsed.passwordHash && inputHash === parsed.passwordHash) {
-          return true;
+        if (parsed.passwordHash) {
+          return inputHash === parsed.passwordHash;
         }
       }
     } catch {
       // Ignore
     }
 
-    // 3. Fallback default hashes (for first run or standard defaults)
+    // 4. ONLY if no custom password has ever been set anywhere, allow default initial passcodes
     const defaultHash1 = await sha256('jatibaraya2026');
     const defaultHash2 = await sha256('admin123');
 
@@ -230,22 +234,40 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return { success: false, message: 'Kata sandi tidak boleh kosong.' };
     }
 
-    // If cloud credential not yet loaded from Firestore, attempt quick fetch
-    if (!cloudCredential) {
-      try {
-        const docRef = doc(db, FIRESTORE_COLLECTION, FIRESTORE_DOC_ID);
-        const snap = await getDoc(docRef);
-        if (snap.exists()) {
-          const data = snap.data() as AdminCredentialData;
-          setCloudCredential(data);
-          localStorage.setItem(LOCAL_CRED_KEY, JSON.stringify(data));
+    // Always fetch fresh credentials from Cloud Firestore directly to guarantee cross-device real-time accuracy
+    let activeCred: AdminCredentialData | null = null;
+    try {
+      const docRef = doc(db, FIRESTORE_COLLECTION, FIRESTORE_DOC_ID);
+      const snap = await getDoc(docRef);
+      if (snap.exists()) {
+        activeCred = snap.data() as AdminCredentialData;
+        setCloudCredential(activeCred);
+        try {
+          localStorage.setItem(LOCAL_CRED_KEY, JSON.stringify(activeCred));
+        } catch {
+          // Ignore quota
         }
-      } catch (e) {
-        console.warn('Tidak dapat mengambil kredensial cloud secara langsung:', e);
+      }
+    } catch (e) {
+      console.warn('Tidak dapat mengambil kredensial cloud secara langsung, menggunakan cadangan lokal:', e);
+    }
+
+    // Fallback to memory or localStorage if network failed
+    if (!activeCred) {
+      activeCred = cloudCredential;
+    }
+    if (!activeCred) {
+      try {
+        const cached = localStorage.getItem(LOCAL_CRED_KEY);
+        if (cached) {
+          activeCred = JSON.parse(cached) as AdminCredentialData;
+        }
+      } catch {
+        // Ignore
       }
     }
 
-    const isValid = await verifyPasscode(passcode);
+    const isValid = await verifyPasscode(passcode, activeCred);
 
     if (isValid) {
       const now = Date.now();
@@ -264,7 +286,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         createdAt: now,
         expiresAt: now + SESSION_TTL_MS,
         lastActive: now,
-        credentialVersion: cloudCredential?.version || now,
+        credentialVersion: activeCred?.version || cloudCredential?.version || now,
       };
 
       // Store in localStorage for multi-tab support and persistence
@@ -278,7 +300,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setSessionRemainingMinutes(1440);
 
       // If cloud credentials did not exist yet, initialize it in Firestore
-      if (!cloudCredential || !cloudCredential.passwordHash) {
+      if (!activeCred || !activeCred.passwordHash) {
         try {
           const inputHash = await sha256(passcode.trim());
           const newCred: AdminCredentialData = {
@@ -308,7 +330,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return { success: true };
     }
 
-    return { success: false, message: 'Kata sandi salah. Silakan periksa kembali atau gunakan kata sandi yang telah disinkronkan.' };
+    return {
+      success: false,
+      message: 'Kata sandi salah. Silakan masukkan kata sandi terbaru yang telah diatur oleh pengurus.',
+    };
   };
 
   const logout = () => {
@@ -335,7 +360,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     oldPasscode: string,
     newPasscode: string
   ): Promise<{ success: boolean; message: string }> => {
-    const isOldValid = await verifyPasscode(oldPasscode);
+    // Fetch latest credential from Firestore first to make sure verification of oldPasscode is current
+    let currentCred: AdminCredentialData | null = null;
+    try {
+      const docRef = doc(db, FIRESTORE_COLLECTION, FIRESTORE_DOC_ID);
+      const snap = await getDoc(docRef);
+      if (snap.exists()) {
+        currentCred = snap.data() as AdminCredentialData;
+        setCloudCredential(currentCred);
+      }
+    } catch (e) {
+      console.warn('Gagal membaca kredensial saat update password:', e);
+    }
+    if (!currentCred) {
+      currentCred = cloudCredential;
+    }
+
+    const isOldValid = await verifyPasscode(oldPasscode, currentCred);
     if (!isOldValid) {
       return { success: false, message: 'Kata sandi saat ini tidak sesuai.' };
     }
@@ -360,13 +401,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       // 2. Update local state and cache
       setCloudCredential(updatedCred);
-      localStorage.setItem(LOCAL_CRED_KEY, JSON.stringify(updatedCred));
+      try {
+        localStorage.setItem(LOCAL_CRED_KEY, JSON.stringify(updatedCred));
+      } catch {
+        // Ignore
+      }
 
       // 3. Update current session's credential version
       if (currentSession) {
         const updatedSession = { ...currentSession, credentialVersion: newVersion };
         setCurrentSession(updatedSession);
-        localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(updatedSession));
+        try {
+          localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(updatedSession));
+        } catch {
+          // Ignore
+        }
       }
 
       // 4. Record Audit Log
@@ -380,7 +429,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       return {
         success: true,
-        message: 'Kata sandi berhasil diperbarui dan telah disinkronkan ke seluruh perangkat (Cloud Firestore)!',
+        message: 'Kata sandi berhasil diperbarui dan telah disinkronkan secara real-time ke seluruh browser dan perangkat!',
       };
     } catch (err: any) {
       console.error('Gagal memperbarui kata sandi ke cloud:', err);

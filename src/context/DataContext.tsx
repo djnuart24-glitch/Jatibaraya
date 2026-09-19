@@ -135,39 +135,57 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (snapshot.exists()) {
             const remote = snapshot.data() as Partial<JatibarayaDatabase>;
             
-            // If local client has uncommitted edits currently in debouncing,
-            // we preserve pending local fields to prevent race condition overwrite
             setData((prev) => {
+              const hasLocalPending = pendingChangesCounterRef.current > 0;
+
               const merged: JatibarayaDatabase = {
                 ...initialJatibarayaData,
-                ...prev,
                 ...remote,
-                settings: {
+                settings: remote.settings ? {
                   ...initialJatibarayaData.settings,
-                  ...prev.settings,
                   ...remote.settings,
-                  logoUrl: (remote.settings?.logoUrl && remote.settings.logoUrl.trim() !== '')
-                    ? remote.settings.logoUrl
-                    : (prev.settings?.logoUrl && prev.settings.logoUrl.trim() !== '')
-                      ? prev.settings.logoUrl
-                      : initialJatibarayaData.settings.logoUrl,
-                  faviconUrl: (remote.settings?.faviconUrl && remote.settings.faviconUrl.trim() !== '')
-                    ? remote.settings.faviconUrl
-                    : (prev.settings?.faviconUrl && prev.settings.faviconUrl.trim() !== '')
-                      ? prev.settings.faviconUrl
-                      : initialJatibarayaData.settings.faviconUrl,
-                },
-                about: {
+                  ...(hasLocalPending ? prev.settings : {}),
+                  logoUrl: remote.settings.logoUrl || (hasLocalPending ? prev.settings?.logoUrl : '') || initialJatibarayaData.settings.logoUrl,
+                  faviconUrl: remote.settings.faviconUrl || (hasLocalPending ? prev.settings?.faviconUrl : '') || initialJatibarayaData.settings.faviconUrl,
+                } : prev.settings,
+                about: remote.about ? {
                   ...initialJatibarayaData.about,
-                  ...prev.about,
                   ...remote.about,
-                },
-                symbols: Array.isArray(remote.symbols) && remote.symbols.length >= 5
-                  ? remote.symbols
+                  ...(hasLocalPending ? prev.about : {}),
+                } : prev.about,
+                symbols: Array.isArray(remote.symbols) && remote.symbols.length > 0
+                  ? (hasLocalPending ? prev.symbols : remote.symbols)
                   : prev.symbols,
-                stats: { ...initialJatibarayaData.stats, ...prev.stats, ...remote.stats },
-                contact: { ...initialJatibarayaData.contact, ...prev.contact, ...remote.contact },
+                programs: Array.isArray(remote.programs)
+                  ? (hasLocalPending ? prev.programs : remote.programs)
+                  : prev.programs,
+                news: Array.isArray(remote.news)
+                  ? (hasLocalPending ? prev.news : remote.news)
+                  : prev.news,
+                articles: Array.isArray(remote.articles)
+                  ? (hasLocalPending ? prev.articles : remote.articles)
+                  : prev.articles,
+                announcements: Array.isArray(remote.announcements)
+                  ? (hasLocalPending ? prev.announcements : remote.announcements)
+                  : prev.announcements,
+                media: Array.isArray(remote.media)
+                  ? (hasLocalPending ? prev.media : remote.media)
+                  : prev.media,
+                socials: Array.isArray(remote.socials)
+                  ? (hasLocalPending ? prev.socials : remote.socials)
+                  : prev.socials,
+                stats: remote.stats ? {
+                  ...initialJatibarayaData.stats,
+                  ...remote.stats,
+                  ...(hasLocalPending ? prev.stats : {}),
+                } : prev.stats,
+                contact: remote.contact ? {
+                  ...initialJatibarayaData.contact,
+                  ...remote.contact,
+                  ...(hasLocalPending ? prev.contact : {}),
+                } : prev.contact,
               };
+
               try {
                 localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
               } catch (e) {
@@ -214,36 +232,49 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [data]);
 
-  // 3. Debounced cloud persistence - ONLY when pending user changes exist!
-  // This completely eliminates snapshot echo & circular overwrite race conditions
+  // Synchronize directly to Firestore
+  const syncToFirestore = async (dataToSave: JatibarayaDatabase) => {
+    setIsCloudSyncing(true);
+    try {
+      const docRef = doc(db, FIRESTORE_COLLECTION, FIRESTORE_DOC_ID);
+      await setDoc(docRef, dataToSave, { merge: true });
+      pendingChangesCounterRef.current = 0;
+      setCloudStatus('connected');
+      setLastCloudSync(new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+    } catch (err) {
+      console.error('Gagal sinkronisasi data ke Cloud Firestore:', err);
+      setCloudStatus('error');
+    } finally {
+      setIsCloudSyncing(false);
+    }
+  };
+
+  // Immediate state + cloud updater for real-time synchronization across any browser
+  const applyChange = (updater: (prev: JatibarayaDatabase) => JatibarayaDatabase) => {
+    pendingChangesCounterRef.current += 1;
+    setData((prev) => {
+      const next = updater(prev);
+      latestDataRef.current = next;
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+      } catch (e) {
+        // Ignore quota
+      }
+      writeQueueRef.current = writeQueueRef.current.then(() => syncToFirestore(next));
+      return next;
+    });
+  };
+
+  // 3. Fallback debounced cloud persistence for rapid uncommitted changes
   useEffect(() => {
     if (pendingChangesCounterRef.current === 0) {
-      // Data change was caused by remote snapshot or initial hydration, NOT a local user action
       return;
     }
 
     const timer = setTimeout(() => {
       const dataToSave = latestDataRef.current;
-      const changesCount = pendingChangesCounterRef.current;
-
-      // Queue write sequentially to prevent parallel write races
-      writeQueueRef.current = writeQueueRef.current
-        .then(async () => {
-          setIsCloudSyncing(true);
-          const docRef = doc(db, FIRESTORE_COLLECTION, FIRESTORE_DOC_ID);
-          await setDoc(docRef, dataToSave, { merge: true });
-          pendingChangesCounterRef.current = Math.max(0, pendingChangesCounterRef.current - changesCount);
-          setCloudStatus('connected');
-          setLastCloudSync(new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
-        })
-        .catch((err) => {
-          console.error('Gagal sinkronisasi data ke Cloud Firestore:', err);
-          setCloudStatus('error');
-        })
-        .finally(() => {
-          setIsCloudSyncing(false);
-        });
-    }, 600);
+      writeQueueRef.current = writeQueueRef.current.then(() => syncToFirestore(dataToSave));
+    }, 400);
 
     return () => clearTimeout(timer);
   }, [data]);
@@ -254,22 +285,10 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return new Promise<void>((resolve, reject) => {
       writeQueueRef.current = writeQueueRef.current
         .then(async () => {
-          setIsCloudSyncing(true);
-          const docRef = doc(db, FIRESTORE_COLLECTION, FIRESTORE_DOC_ID);
-          await setDoc(docRef, dataToSave, { merge: true });
-          pendingChangesCounterRef.current = 0;
-          setCloudStatus('connected');
-          setLastCloudSync(new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+          await syncToFirestore(dataToSave);
           resolve();
         })
-        .catch((err) => {
-          console.error('Gagal manual simpan ke Cloud Firestore:', err);
-          setCloudStatus('error');
-          reject(err);
-        })
-        .finally(() => {
-          setIsCloudSyncing(false);
-        });
+        .catch(reject);
     });
   };
 
@@ -278,8 +297,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const updateSettings = (settings: Partial<SiteSettings>) => {
-    markUserChange();
-    setData((prev) => ({
+    applyChange((prev) => ({
       ...prev,
       settings: {
         ...prev.settings,
@@ -297,8 +315,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const updateAbout = (about: Partial<AboutContent>) => {
-    markUserChange();
-    setData((prev) => ({
+    applyChange((prev) => ({
       ...prev,
       about: {
         ...prev.about,
@@ -315,8 +332,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const updateSymbols = (symbols: SymbolElement[]) => {
-    markUserChange();
-    setData((prev) => ({
+    applyChange((prev) => ({
       ...prev,
       symbols,
     }));
@@ -329,8 +345,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const updateStats = (stats: Partial<OrganizationStats>) => {
-    markUserChange();
-    setData((prev) => ({
+    applyChange((prev) => ({
       ...prev,
       stats: {
         ...prev.stats,
@@ -347,8 +362,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const updateContact = (contact: Partial<ContactInfo>) => {
-    markUserChange();
-    setData((prev) => ({
+    applyChange((prev) => ({
       ...prev,
       contact: {
         ...prev.contact,
@@ -365,8 +379,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const updateSocials = (socials: SocialMediaItem[]) => {
-    markUserChange();
-    setData((prev) => ({
+    applyChange((prev) => ({
       ...prev,
       socials,
     }));
@@ -379,14 +392,13 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const addProgram = (prog: Omit<ProgramItem, 'id' | 'created_at' | 'updated_at'>) => {
-    markUserChange();
     const newItem: ProgramItem = {
       ...prog,
       id: `prog-${Date.now()}`,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
-    setData((prev) => ({
+    applyChange((prev) => ({
       ...prev,
       programs: [newItem, ...prev.programs],
     }));
@@ -402,8 +414,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const updateProgram = (id: string, updated: Partial<ProgramItem>) => {
-    markUserChange();
-    setData((prev) => ({
+    applyChange((prev) => ({
       ...prev,
       programs: prev.programs.map((item) =>
         item.id === id ? { ...item, ...updated, updated_at: new Date().toISOString() } : item
@@ -418,9 +429,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const deleteProgram = (id: string) => {
-    markUserChange();
     const target = data.programs.find((p) => p.id === id);
-    setData((prev) => ({
+    applyChange((prev) => ({
       ...prev,
       programs: prev.programs.filter((item) => item.id !== id),
     }));
@@ -433,7 +443,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const addNews = (newsData: Omit<NewsItem, 'id' | 'created_at' | 'updated_at' | 'slug'>) => {
-    markUserChange();
     const newItem: NewsItem = {
       ...newsData,
       id: `news-${Date.now()}`,
@@ -441,7 +450,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
-    setData((prev) => ({
+    applyChange((prev) => ({
       ...prev,
       news: [newItem, ...prev.news],
     }));
@@ -457,8 +466,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const updateNews = (id: string, updated: Partial<NewsItem>) => {
-    markUserChange();
-    setData((prev) => ({
+    applyChange((prev) => ({
       ...prev,
       news: prev.news.map((item) => {
         if (item.id === id) {
@@ -482,9 +490,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const deleteNews = (id: string) => {
-    markUserChange();
     const target = data.news.find((n) => n.id === id);
-    setData((prev) => ({
+    applyChange((prev) => ({
       ...prev,
       news: prev.news.filter((item) => item.id !== id),
     }));
@@ -497,7 +504,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const addArticle = (artData: Omit<ArticleItem, 'id' | 'created_at' | 'updated_at' | 'slug'>) => {
-    markUserChange();
     const newItem: ArticleItem = {
       ...artData,
       id: `art-${Date.now()}`,
@@ -505,7 +511,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
-    setData((prev) => ({
+    applyChange((prev) => ({
       ...prev,
       articles: [newItem, ...prev.articles],
     }));
@@ -521,8 +527,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const updateArticle = (id: string, updated: Partial<ArticleItem>) => {
-    markUserChange();
-    setData((prev) => ({
+    applyChange((prev) => ({
       ...prev,
       articles: prev.articles.map((item) => {
         if (item.id === id) {
@@ -546,9 +551,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const deleteArticle = (id: string) => {
-    markUserChange();
     const target = data.articles.find((a) => a.id === id);
-    setData((prev) => ({
+    applyChange((prev) => ({
       ...prev,
       articles: prev.articles.filter((item) => item.id !== id),
     }));
@@ -561,14 +565,13 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const addAnnouncement = (annData: Omit<AnnouncementItem, 'id' | 'created_at' | 'updated_at'>) => {
-    markUserChange();
     const newItem: AnnouncementItem = {
       ...annData,
       id: `ann-${Date.now()}`,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
-    setData((prev) => ({
+    applyChange((prev) => ({
       ...prev,
       announcements: [newItem, ...prev.announcements],
     }));
@@ -584,8 +587,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const updateAnnouncement = (id: string, updated: Partial<AnnouncementItem>) => {
-    markUserChange();
-    setData((prev) => ({
+    applyChange((prev) => ({
       ...prev,
       announcements: prev.announcements.map((item) =>
         item.id === id ? { ...item, ...updated, updated_at: new Date().toISOString() } : item
@@ -600,9 +602,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const deleteAnnouncement = (id: string) => {
-    markUserChange();
     const target = data.announcements.find((a) => a.id === id);
-    setData((prev) => ({
+    applyChange((prev) => ({
       ...prev,
       announcements: prev.announcements.filter((item) => item.id !== id),
     }));
@@ -615,13 +616,12 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const addMedia = (item: Omit<MediaItem, 'id' | 'created_at'>) => {
-    markUserChange();
     const newItem: MediaItem = {
       ...item,
       id: `med-${Date.now()}`,
       created_at: new Date().toISOString(),
     };
-    setData((prev) => ({
+    applyChange((prev) => ({
       ...prev,
       media: [newItem, ...prev.media],
     }));
@@ -637,9 +637,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const deleteMedia = (id: string) => {
-    markUserChange();
     const target = data.media.find((m) => m.id === id);
-    setData((prev) => ({
+    applyChange((prev) => ({
       ...prev,
       media: prev.media.filter((item) => item.id !== id),
     }));

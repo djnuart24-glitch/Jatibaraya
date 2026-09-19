@@ -79,8 +79,9 @@ export const AdminLoginView: React.FC<AdminLoginViewProps> = ({ onBackToPublic }
                 className="w-full pl-10 pr-4 py-3 rounded-xl bg-slate-950 border border-slate-700 focus:outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400 text-sm text-white placeholder-slate-500"
               />
             </div>
-            <p className="text-[11px] text-slate-400 pt-1">
-              *Kata sandi bawaan awal: <strong className="text-amber-300 font-mono">jatibaraya2026</strong>
+            <p className="text-[11px] text-slate-400 pt-1 flex items-center justify-between">
+              <span>*Kata sandi awal: <strong className="text-amber-300 font-mono">jatibaraya2026</strong></span>
+              <span className="text-emerald-400 text-[10px]">● Real-time Cloud Sync</span>
             </p>
           </div>
 
