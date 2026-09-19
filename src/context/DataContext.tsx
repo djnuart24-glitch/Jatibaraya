@@ -16,6 +16,7 @@ import {
 import { initialJatibarayaData } from '../data/initialData';
 import { db } from '../lib/firebase';
 import { doc, onSnapshot, setDoc } from 'firebase/firestore';
+import { recordAuditLog } from '../services/auditService';
 
 const STORAGE_KEY = 'jatibaraya_database_v1';
 const FIRESTORE_COLLECTION = 'content';
@@ -35,7 +36,7 @@ interface DataContextType {
   updateStats: (stats: Partial<OrganizationStats>) => void;
   updateContact: (contact: Partial<ContactInfo>) => void;
   updateSocials: (socials: SocialMediaItem[]) => void;
-  
+
   // Program CRUD
   addProgram: (program: Omit<ProgramItem, 'id' | 'created_at' | 'updated_at'>) => ProgramItem;
   updateProgram: (id: string, program: Partial<ProgramItem>) => void;
@@ -117,8 +118,11 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isCloudSyncing, setIsCloudSyncing] = useState<boolean>(false);
   const [lastCloudSync, setLastCloudSync] = useState<string | null>(null);
 
-  const isRemoteUpdateRef = useRef(false);
-  const isInitialLoadRef = useRef(true);
+  // Anti-Race Condition Refs
+  const pendingChangesCounterRef = useRef<number>(0);
+  const writeQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const latestDataRef = useRef<JatibarayaDatabase>(data);
+  latestDataRef.current = data;
 
   // 1. Listen for real-time changes from Firestore
   useEffect(() => {
@@ -130,7 +134,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         (snapshot) => {
           if (snapshot.exists()) {
             const remote = snapshot.data() as Partial<JatibarayaDatabase>;
-            isRemoteUpdateRef.current = true;
+            
+            // If local client has uncommitted edits currently in debouncing,
+            // we preserve pending local fields to prevent race condition overwrite
             setData((prev) => {
               const merged: JatibarayaDatabase = {
                 ...initialJatibarayaData,
@@ -173,18 +179,15 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 setCloudStatus('error');
               });
           }
-          isInitialLoadRef.current = false;
         },
         (error) => {
           console.warn('Firestore snapshot error:', error);
           setCloudStatus('error');
-          isInitialLoadRef.current = false;
         }
       );
     } catch (err) {
       console.warn('Koneksi Firestore gagal:', err);
       setCloudStatus('error');
-      isInitialLoadRef.current = false;
     }
 
     return () => {
@@ -201,52 +204,71 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [data]);
 
-  // 3. Debounced cloud persistence on user changes
+  // 3. Debounced cloud persistence - ONLY when pending user changes exist!
+  // This completely eliminates snapshot echo & circular overwrite race conditions
   useEffect(() => {
-    // If incoming from remote snapshot or initial load, do not write back
-    if (isRemoteUpdateRef.current) {
-      isRemoteUpdateRef.current = false;
-      return;
-    }
-    if (isInitialLoadRef.current) {
+    if (pendingChangesCounterRef.current === 0) {
+      // Data change was caused by remote snapshot or initial hydration, NOT a local user action
       return;
     }
 
-    const timer = setTimeout(async () => {
-      try {
-        setIsCloudSyncing(true);
-        const docRef = doc(db, FIRESTORE_COLLECTION, FIRESTORE_DOC_ID);
-        await setDoc(docRef, data, { merge: true });
-        setCloudStatus('connected');
-        setLastCloudSync(new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
-      } catch (err) {
-        console.error('Gagal sinkronisasi data ke Cloud Firestore:', err);
-        setCloudStatus('error');
-      } finally {
-        setIsCloudSyncing(false);
-      }
+    const timer = setTimeout(() => {
+      const dataToSave = latestDataRef.current;
+      const changesCount = pendingChangesCounterRef.current;
+
+      // Queue write sequentially to prevent parallel write races
+      writeQueueRef.current = writeQueueRef.current
+        .then(async () => {
+          setIsCloudSyncing(true);
+          const docRef = doc(db, FIRESTORE_COLLECTION, FIRESTORE_DOC_ID);
+          await setDoc(docRef, dataToSave, { merge: true });
+          pendingChangesCounterRef.current = Math.max(0, pendingChangesCounterRef.current - changesCount);
+          setCloudStatus('connected');
+          setLastCloudSync(new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+        })
+        .catch((err) => {
+          console.error('Gagal sinkronisasi data ke Cloud Firestore:', err);
+          setCloudStatus('error');
+        })
+        .finally(() => {
+          setIsCloudSyncing(false);
+        });
     }, 600);
 
     return () => clearTimeout(timer);
   }, [data]);
 
+  // Mutex-protected manual cloud save
   const saveToCloud = async () => {
-    try {
-      setIsCloudSyncing(true);
-      const docRef = doc(db, FIRESTORE_COLLECTION, FIRESTORE_DOC_ID);
-      await setDoc(docRef, data, { merge: true });
-      setCloudStatus('connected');
-      setLastCloudSync(new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
-    } catch (err) {
-      console.error('Gagal manual simpan ke Cloud Firestore:', err);
-      setCloudStatus('error');
-      throw err;
-    } finally {
-      setIsCloudSyncing(false);
-    }
+    const dataToSave = latestDataRef.current;
+    return new Promise<void>((resolve, reject) => {
+      writeQueueRef.current = writeQueueRef.current
+        .then(async () => {
+          setIsCloudSyncing(true);
+          const docRef = doc(db, FIRESTORE_COLLECTION, FIRESTORE_DOC_ID);
+          await setDoc(docRef, dataToSave, { merge: true });
+          pendingChangesCounterRef.current = 0;
+          setCloudStatus('connected');
+          setLastCloudSync(new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+          resolve();
+        })
+        .catch((err) => {
+          console.error('Gagal manual simpan ke Cloud Firestore:', err);
+          setCloudStatus('error');
+          reject(err);
+        })
+        .finally(() => {
+          setIsCloudSyncing(false);
+        });
+    });
+  };
+
+  const markUserChange = () => {
+    pendingChangesCounterRef.current += 1;
   };
 
   const updateSettings = (settings: Partial<SiteSettings>) => {
+    markUserChange();
     setData((prev) => ({
       ...prev,
       settings: {
@@ -255,9 +277,17 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         updated_at: new Date().toISOString(),
       },
     }));
+
+    recordAuditLog(
+      'UPDATE_SETTINGS',
+      'settings',
+      'Memperbarui informasi & branding website',
+      settings.name ? `Nama organisasi: ${settings.name}` : undefined
+    ).catch(() => {});
   };
 
   const updateAbout = (about: Partial<AboutContent>) => {
+    markUserChange();
     setData((prev) => ({
       ...prev,
       about: {
@@ -266,16 +296,30 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         updated_at: new Date().toISOString(),
       },
     }));
+
+    recordAuditLog(
+      'UPDATE_ABOUT',
+      'settings',
+      'Memperbarui halaman Tentang (Visi & Misi Jatibaraya)'
+    ).catch(() => {});
   };
 
   const updateSymbols = (symbols: SymbolElement[]) => {
+    markUserChange();
     setData((prev) => ({
       ...prev,
       symbols,
     }));
+
+    recordAuditLog(
+      'UPDATE_SYMBOLS',
+      'settings',
+      'Memperbarui filosofi 6 elemen lambang resmi Jatibaraya'
+    ).catch(() => {});
   };
 
   const updateStats = (stats: Partial<OrganizationStats>) => {
+    markUserChange();
     setData((prev) => ({
       ...prev,
       stats: {
@@ -284,9 +328,16 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         updated_at: new Date().toISOString(),
       },
     }));
+
+    recordAuditLog(
+      'UPDATE_STATS',
+      'settings',
+      'Memperbarui statistik data warga dan program'
+    ).catch(() => {});
   };
 
   const updateContact = (contact: Partial<ContactInfo>) => {
+    markUserChange();
     setData((prev) => ({
       ...prev,
       contact: {
@@ -295,16 +346,30 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         updated_at: new Date().toISOString(),
       },
     }));
+
+    recordAuditLog(
+      'UPDATE_CONTACT',
+      'settings',
+      'Memperbarui informasi kontak & alamat kesekretariatan'
+    ).catch(() => {});
   };
 
   const updateSocials = (socials: SocialMediaItem[]) => {
+    markUserChange();
     setData((prev) => ({
       ...prev,
       socials,
     }));
+
+    recordAuditLog(
+      'UPDATE_SOCIALS',
+      'settings',
+      'Memperbarui tautan akun media sosial resmi'
+    ).catch(() => {});
   };
 
   const addProgram = (prog: Omit<ProgramItem, 'id' | 'created_at' | 'updated_at'>) => {
+    markUserChange();
     const newItem: ProgramItem = {
       ...prog,
       id: `prog-${Date.now()}`,
@@ -315,26 +380,50 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       ...prev,
       programs: [newItem, ...prev.programs],
     }));
+
+    recordAuditLog(
+      'ADD_PROGRAM',
+      'program',
+      `Menambahkan program baru: "${newItem.title}"`,
+      `Kategori: ${newItem.category} • Jadwal: ${newItem.schedule}`
+    ).catch(() => {});
+
     return newItem;
   };
 
   const updateProgram = (id: string, updated: Partial<ProgramItem>) => {
+    markUserChange();
     setData((prev) => ({
       ...prev,
       programs: prev.programs.map((item) =>
         item.id === id ? { ...item, ...updated, updated_at: new Date().toISOString() } : item
       ),
     }));
+
+    recordAuditLog(
+      'UPDATE_PROGRAM',
+      'program',
+      `Memperbarui program "${updated.title || id}"`
+    ).catch(() => {});
   };
 
   const deleteProgram = (id: string) => {
+    markUserChange();
+    const target = data.programs.find((p) => p.id === id);
     setData((prev) => ({
       ...prev,
       programs: prev.programs.filter((item) => item.id !== id),
     }));
+
+    recordAuditLog(
+      'DELETE_PROGRAM',
+      'program',
+      `Menghapus program "${target?.title || id}"`
+    ).catch(() => {});
   };
 
   const addNews = (newsData: Omit<NewsItem, 'id' | 'created_at' | 'updated_at' | 'slug'>) => {
+    markUserChange();
     const newItem: NewsItem = {
       ...newsData,
       id: `news-${Date.now()}`,
@@ -346,10 +435,19 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       ...prev,
       news: [newItem, ...prev.news],
     }));
+
+    recordAuditLog(
+      'ADD_NEWS',
+      'news',
+      `Menerbitkan berita baru: "${newItem.title}"`,
+      `Kategori: ${newItem.category} • Penulis: ${newItem.author}`
+    ).catch(() => {});
+
     return newItem;
   };
 
   const updateNews = (id: string, updated: Partial<NewsItem>) => {
+    markUserChange();
     setData((prev) => ({
       ...prev,
       news: prev.news.map((item) => {
@@ -365,16 +463,31 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return item;
       }),
     }));
+
+    recordAuditLog(
+      'UPDATE_NEWS',
+      'news',
+      `Memperbarui berita: "${updated.title || id}"`
+    ).catch(() => {});
   };
 
   const deleteNews = (id: string) => {
+    markUserChange();
+    const target = data.news.find((n) => n.id === id);
     setData((prev) => ({
       ...prev,
       news: prev.news.filter((item) => item.id !== id),
     }));
+
+    recordAuditLog(
+      'DELETE_NEWS',
+      'news',
+      `Menghapus berita: "${target?.title || id}"`
+    ).catch(() => {});
   };
 
   const addArticle = (artData: Omit<ArticleItem, 'id' | 'created_at' | 'updated_at' | 'slug'>) => {
+    markUserChange();
     const newItem: ArticleItem = {
       ...artData,
       id: `art-${Date.now()}`,
@@ -386,10 +499,19 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       ...prev,
       articles: [newItem, ...prev.articles],
     }));
+
+    recordAuditLog(
+      'ADD_ARTICLE',
+      'article',
+      `Menerbitkan artikel baru: "${newItem.title}"`,
+      `Kategori: ${newItem.category} • Penulis: ${newItem.author}`
+    ).catch(() => {});
+
     return newItem;
   };
 
   const updateArticle = (id: string, updated: Partial<ArticleItem>) => {
+    markUserChange();
     setData((prev) => ({
       ...prev,
       articles: prev.articles.map((item) => {
@@ -405,16 +527,31 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return item;
       }),
     }));
+
+    recordAuditLog(
+      'UPDATE_ARTICLE',
+      'article',
+      `Memperbarui artikel: "${updated.title || id}"`
+    ).catch(() => {});
   };
 
   const deleteArticle = (id: string) => {
+    markUserChange();
+    const target = data.articles.find((a) => a.id === id);
     setData((prev) => ({
       ...prev,
       articles: prev.articles.filter((item) => item.id !== id),
     }));
+
+    recordAuditLog(
+      'DELETE_ARTICLE',
+      'article',
+      `Menghapus artikel: "${target?.title || id}"`
+    ).catch(() => {});
   };
 
   const addAnnouncement = (annData: Omit<AnnouncementItem, 'id' | 'created_at' | 'updated_at'>) => {
+    markUserChange();
     const newItem: AnnouncementItem = {
       ...annData,
       id: `ann-${Date.now()}`,
@@ -425,26 +562,50 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       ...prev,
       announcements: [newItem, ...prev.announcements],
     }));
+
+    recordAuditLog(
+      'ADD_ANNOUNCEMENT',
+      'announcement',
+      `Membuat pengumuman: "${newItem.title}"`,
+      `Prioritas: ${newItem.priority}`
+    ).catch(() => {});
+
     return newItem;
   };
 
   const updateAnnouncement = (id: string, updated: Partial<AnnouncementItem>) => {
+    markUserChange();
     setData((prev) => ({
       ...prev,
       announcements: prev.announcements.map((item) =>
         item.id === id ? { ...item, ...updated, updated_at: new Date().toISOString() } : item
       ),
     }));
+
+    recordAuditLog(
+      'UPDATE_ANNOUNCEMENT',
+      'announcement',
+      `Memperbarui pengumuman: "${updated.title || id}"`
+    ).catch(() => {});
   };
 
   const deleteAnnouncement = (id: string) => {
+    markUserChange();
+    const target = data.announcements.find((a) => a.id === id);
     setData((prev) => ({
       ...prev,
       announcements: prev.announcements.filter((item) => item.id !== id),
     }));
+
+    recordAuditLog(
+      'DELETE_ANNOUNCEMENT',
+      'announcement',
+      `Menghapus pengumuman: "${target?.title || id}"`
+    ).catch(() => {});
   };
 
   const addMedia = (item: Omit<MediaItem, 'id' | 'created_at'>) => {
+    markUserChange();
     const newItem: MediaItem = {
       ...item,
       id: `med-${Date.now()}`,
@@ -454,17 +615,38 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       ...prev,
       media: [newItem, ...prev.media],
     }));
+
+    recordAuditLog(
+      'ADD_MEDIA',
+      'media',
+      `Menambahkan dokumentasi: "${newItem.title}"`,
+      `Kategori: ${newItem.category}`
+    ).catch(() => {});
+
     return newItem;
   };
 
   const deleteMedia = (id: string) => {
+    markUserChange();
+    const target = data.media.find((m) => m.id === id);
     setData((prev) => ({
       ...prev,
       media: prev.media.filter((item) => item.id !== id),
     }));
+
+    recordAuditLog(
+      'DELETE_MEDIA',
+      'media',
+      `Menghapus dokumentasi: "${target?.title || id}"`
+    ).catch(() => {});
   };
 
   const exportDatabaseJSON = () => {
+    recordAuditLog(
+      'EXPORT_BACKUP',
+      'backup',
+      'Admin mengekspor cadangan database JSON'
+    ).catch(() => {});
     return JSON.stringify(data, null, 2);
   };
 
@@ -472,8 +654,16 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const parsed = JSON.parse(jsonStr);
       if (parsed && parsed.settings && parsed.programs) {
+        markUserChange();
         setData(parsed);
         saveToCloud().catch((e) => console.warn('Sync after import error:', e));
+
+        recordAuditLog(
+          'IMPORT_BACKUP',
+          'backup',
+          'Admin memulihkan data dari cadangan file JSON'
+        ).catch(() => {});
+
         return true;
       }
       return false;
@@ -483,8 +673,15 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const resetToInitial = () => {
+    markUserChange();
     setData(initialJatibarayaData);
     saveToCloud().catch((e) => console.warn('Sync after reset error:', e));
+
+    recordAuditLog(
+      'RESET_DATABASE',
+      'backup',
+      'Admin mereset database ke data bawaan awal'
+    ).catch(() => {});
   };
 
   return (

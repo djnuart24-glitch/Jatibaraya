@@ -13,6 +13,7 @@ import {
   Phone,
   Share2,
   Settings,
+  ShieldAlert,
   LogOut,
   Globe,
 } from 'lucide-react';
@@ -49,6 +50,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
     { id: 'kontak', label: '11. Kontak', icon: Phone },
     { id: 'sosial', label: '12. Media Sosial', icon: Share2 },
     { id: 'pengaturan', label: '13. Pengaturan', icon: Settings },
+    { id: 'audit', label: '14. Log Aktivitas', icon: ShieldAlert },
   ];
 
   return (

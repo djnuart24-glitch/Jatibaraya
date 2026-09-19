@@ -299,12 +299,21 @@ export const AdminSettingsView: React.FC = () => {
 
       {/* 2. Ganti Kata Sandi Portal Pengurus */}
       <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-xs space-y-5">
-        <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
-          <KeyRound className="w-4 h-4 text-amber-600" />
-          <h2 className="text-base font-serif font-bold text-slate-900">
-            Ganti Kata Sandi Portal Pengurus
-          </h2>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-slate-100">
+          <div className="flex items-center gap-2">
+            <KeyRound className="w-4 h-4 text-amber-600" />
+            <h2 className="text-base font-serif font-bold text-slate-900">
+              Ganti Kata Sandi Portal Pengurus
+            </h2>
+          </div>
+          <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 self-start sm:self-auto">
+            ✓ Sinkron Lintas Perangkat (Cloud Firestore)
+          </span>
         </div>
+
+        <p className="text-xs text-slate-500">
+          Pembaruan kata sandi di sini langsung disinkronkan ke database cloud. Seluruh perangkat dan laptop pengurus yang mengakses portal CMS akan otomatis menggunakan kata sandi baru.
+        </p>
 
         {passwordNotice && (
           <div

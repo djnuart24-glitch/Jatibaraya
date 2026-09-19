@@ -1,0 +1,57 @@
+{
+  "entities": {
+    "siteContent": {
+      "title": "SiteContent",
+      "description": "Main website content including programs, news, articles, settings, and media",
+      "type": "object",
+      "properties": {
+        "settings": { "type": "object" },
+        "about": { "type": "object" },
+        "symbols": { "type": "array" },
+        "programs": { "type": "array" },
+        "news": { "type": "array" },
+        "articles": { "type": "array" },
+        "announcements": { "type": "array" },
+        "media": { "type": "array" },
+        "stats": { "type": "object" },
+        "contact": { "type": "object" },
+        "socials": { "type": "array" }
+      }
+    },
+    "credentials": {
+      "title": "Credentials",
+      "description": "Admin security passcode hash for cross-device authentication synchronization",
+      "type": "object",
+      "properties": {
+        "passwordHash": { "type": "string" },
+        "updatedAt": { "type": "string" },
+        "updatedBy": { "type": "string" },
+        "version": { "type": "number" }
+      },
+      "required": ["passwordHash", "updatedAt"]
+    },
+    "auditLog": {
+      "title": "AuditLog",
+      "description": "Chronological administrative audit trail for tracking system actions",
+      "type": "object",
+      "properties": {
+        "logs": { "type": "array" },
+        "last_updated": { "type": "string" }
+      }
+    }
+  },
+  "firestore": {
+    "/content/main": {
+      "schema": "siteContent",
+      "description": "Stores general website data"
+    },
+    "/content/credentials": {
+      "schema": "credentials",
+      "description": "Stores admin credentials for cross-device authentication synchronization"
+    },
+    "/content/audit_logs": {
+      "schema": "auditLog",
+      "description": "Stores administrative audit trail records"
+    }
+  }
+}

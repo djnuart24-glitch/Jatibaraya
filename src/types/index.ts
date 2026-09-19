@@ -131,6 +131,49 @@ export interface AdminUser {
   lastLogin?: string;
 }
 
+export type AuditLogCategory =
+  | 'auth'
+  | 'settings'
+  | 'program'
+  | 'news'
+  | 'article'
+  | 'announcement'
+  | 'media'
+  | 'system'
+  | 'backup';
+
+export interface AuditLogItem {
+  id: string;
+  timestamp: string; // ISO String
+  action: string;    // e.g. 'LOGIN', 'LOGOUT', 'UPDATE_PASSWORD', 'ADD_PROGRAM', 'UPDATE_SETTINGS', etc.
+  category: AuditLogCategory;
+  actor: {
+    id: string;
+    name: string;
+    username: string;
+    role: string;
+  };
+  description: string;
+  details?: string;
+  deviceInfo?: string;
+}
+
+export interface AdminSession {
+  token: string;
+  user: AdminUser;
+  createdAt: number;
+  expiresAt: number;
+  lastActive: number;
+  credentialVersion?: number;
+}
+
+export interface AdminCredentialData {
+  passwordHash: string;
+  updatedAt: string;
+  updatedBy?: string;
+  version: number;
+}
+
 export interface JatibarayaDatabase {
   settings: SiteSettings;
   about: AboutContent;
@@ -144,3 +187,4 @@ export interface JatibarayaDatabase {
   contact: ContactInfo;
   socials: SocialMediaItem[];
 }
+

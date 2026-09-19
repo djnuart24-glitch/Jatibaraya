@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useJatibarayaData } from '../../context/DataContext';
+import { AuditLogItem } from '../../types';
+import { subscribeAuditLogs } from '../../services/auditService';
 import {
   Layers,
   Newspaper,
@@ -13,6 +15,9 @@ import {
   ExternalLink,
   Shield,
   Sparkles,
+  ShieldAlert,
+  Clock,
+  ArrowRight,
 } from 'lucide-react';
 
 interface OverviewProps {
@@ -28,6 +33,14 @@ export const AdminDashboardOverview: React.FC<OverviewProps> = ({
   const { programs, news, articles, announcements, media, settings } = data;
 
   const [notification, setNotification] = useState('');
+  const [recentLogs, setRecentLogs] = useState<AuditLogItem[]>([]);
+
+  useEffect(() => {
+    const unsub = subscribeAuditLogs((logs) => {
+      setRecentLogs(logs.slice(0, 4));
+    });
+    return () => unsub();
+  }, []);
 
   const handleExport = () => {
     const jsonStr = exportDatabaseJSON();
@@ -208,6 +221,55 @@ export const AdminDashboardOverview: React.FC<OverviewProps> = ({
             <span className="text-[11px] text-slate-500 block">Ubah angka santri, alumni, program, atau pertahankan tanda strip (—).</span>
           </button>
         </div>
+      </div>
+
+      {/* Live Audit Trail Preview */}
+      <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-xs space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-100">
+          <div className="flex items-center gap-2">
+            <ShieldAlert className="w-5 h-5 text-amber-600" />
+            <div>
+              <h3 className="text-base font-serif font-bold text-slate-900">
+                Log Aktivitas & Audit Trail Terkini
+              </h3>
+              <p className="text-xs text-slate-500">
+                Aktivitas login, pembaruan kata sandi, dan perubahan data tersinkronisasi real-time antar perangkat.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => onSelectSection('audit')}
+            className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-700 hover:text-emerald-800 transition-colors cursor-pointer self-start sm:self-auto"
+          >
+            <span>Buka Log Lengkap (14)</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </button>
+        </div>
+
+        {recentLogs.length === 0 ? (
+          <div className="py-6 text-center text-xs text-slate-400">
+            Belum ada aktivitas tercatat hari ini. Semua tindakan perubahan konten dan sesi login akan otomatis dicatat di sini.
+          </div>
+        ) : (
+          <div className="divide-y divide-slate-100">
+            {recentLogs.map((log) => (
+              <div key={log.id} className="py-2.5 flex items-center justify-between gap-3 text-xs">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 flex-shrink-0" />
+                  <span className="font-semibold text-slate-800 truncate">{log.description}</span>
+                  <span className="text-[10px] font-mono text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded hidden sm:inline">
+                    {log.action}
+                  </span>
+                </div>
+                <div className="flex items-center gap-3 text-[11px] text-slate-400 flex-shrink-0">
+                  <span>{log.actor.name}</span>
+                  <span>•</span>
+                  <span>{new Date(log.timestamp).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Database Backup & Maintenance Panel */}
