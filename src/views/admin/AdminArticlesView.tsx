@@ -3,6 +3,8 @@ import { useJatibarayaData } from '../../context/DataContext';
 import { ArticleItem } from '../../types';
 import { RichTextEditor } from '../../components/admin/RichTextEditor';
 import { ConfirmModal } from '../../components/common/ConfirmModal';
+import { ShareModal } from '../../components/common/ShareModal';
+import { ShareableItem } from '../../utils/shareUtils';
 import {
   Plus,
   Edit2,
@@ -13,6 +15,7 @@ import {
   User,
   CheckCircle2,
   BookOpen,
+  Share2,
 } from 'lucide-react';
 
 export const AdminArticlesView: React.FC = () => {
@@ -24,12 +27,22 @@ export const AdminArticlesView: React.FC = () => {
   const [toastMessage, setToastMessage] = useState('');
   const [itemToDelete, setItemToDelete] = useState<{ id: string; title: string } | null>(null);
 
+  // Share Modal
+  const [shareTarget, setShareTarget] = useState<ShareableItem | null>(null);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+
+  const handleOpenShare = (item: ShareableItem) => {
+    setShareTarget(item);
+    setIsShareModalOpen(true);
+  };
+
   const articleCategories = [
     'Refleksi Santri',
-    'Keilmuan & Fiqih',
+    'Keislaman & Tasawuf',
+    'Kisah Inspiratif',
+    'Pojok Alumni',
     'Sosial Kemasyarakatan',
-    'Pendidikan Pesantren',
-    'Khidmah',
+    'Tradisi & Budaya Sunda',
   ];
 
   const handleCreateNew = () => {
@@ -64,15 +77,33 @@ export const AdminArticlesView: React.FC = () => {
     imageUrl?: string;
     published: boolean;
   }) => {
+    let targetShare: ShareableItem;
     if (editingItem) {
       updateArticle(editingItem.id, savedData);
       showNotice(`Artikel "${savedData.title}" berhasil diperbarui.`);
+      targetShare = {
+        id: editingItem.id,
+        ...savedData,
+        type: 'artikel',
+      };
     } else {
-      addArticle(savedData);
+      const created = addArticle(savedData);
       showNotice(`Artikel "${savedData.title}" berhasil disimpan.`);
+      targetShare = {
+        id: created.id,
+        ...savedData,
+        type: 'artikel',
+      };
     }
     setIsEditing(false);
     setEditingItem(null);
+
+    // If published, automatically open share dialog so author/admin can share immediately
+    if (savedData.published) {
+      setTimeout(() => {
+        handleOpenShare(targetShare);
+      }, 200);
+    }
   };
 
   const showNotice = (msg: string) => {
@@ -90,13 +121,12 @@ export const AdminArticlesView: React.FC = () => {
         </div>
       )}
 
-      {/* Confirmation Modal */}
+      {/* Delete Confirmation Modal */}
       <ConfirmModal
         isOpen={Boolean(itemToDelete)}
         title="Hapus Artikel?"
-        message={`Apakah Anda yakin ingin menghapus artikel "${itemToDelete?.title || 'ini'}"? Tindakan ini akan menghapus artikel dari portal dan cloud database.`}
+        message={`Apakah Anda yakin ingin menghapus artikel "${itemToDelete?.title}"? Tindakan ini tidak dapat dibatalkan.`}
         confirmText="Ya, Hapus Artikel"
-        cancelText="Batal"
         isDanger={true}
         onConfirm={confirmDeleteArticle}
         onCancel={() => setItemToDelete(null)}
@@ -106,10 +136,10 @@ export const AdminArticlesView: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200">
         <div>
           <h1 className="text-2xl font-serif font-bold text-slate-900">
-            7. Manajemen Artikel & Gagasan Santri
+            7. Manajemen Artikel & Opini Santri
           </h1>
           <p className="text-xs text-slate-500 mt-1">
-            Kelola tulisan santri, esai keilmuan pesantren, dan opini ukhuwah Priangan.
+            Wadah publikasi karya tulis, refleksi spiritual, kajian ilmiah, serta suara santri Priangan.
           </p>
         </div>
 
@@ -125,6 +155,7 @@ export const AdminArticlesView: React.FC = () => {
         )}
       </div>
 
+      {/* Form or List */}
       {isEditing ? (
         <RichTextEditor
           initialTitle={editingItem?.title}
@@ -134,7 +165,7 @@ export const AdminArticlesView: React.FC = () => {
           initialAuthor={editingItem?.author}
           initialDate={editingItem?.date}
           initialImageUrl={editingItem?.imageUrl}
-          initialPublished={editingItem?.published ?? true}
+          initialPublished={editingItem?.published}
           categories={articleCategories}
           typeLabel="Artikel"
           onSave={handleSave}
@@ -163,20 +194,42 @@ export const AdminArticlesView: React.FC = () => {
                         {item.category}
                       </span>
                       <div className="flex items-center gap-1">
+                        {item.published && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleOpenShare({
+                                id: item.id,
+                                title: item.title,
+                                summary: item.summary,
+                                content: item.content,
+                                category: item.category,
+                                author: item.author,
+                                date: item.date,
+                                type: 'artikel',
+                              })
+                            }
+                            className="p-1.5 rounded-lg text-emerald-700 hover:text-emerald-950 hover:bg-emerald-50 transition-colors"
+                            title="Bagikan Artikel (WhatsApp / Salin Link)"
+                          >
+                            <Share2 className="w-4 h-4 text-emerald-700" />
+                          </button>
+                        )}
                         <button
                           type="button"
                           onClick={() => handleTogglePublish(item)}
                           className={`p-1.5 rounded-lg text-xs ${
                             item.published ? 'text-emerald-700 hover:bg-emerald-50' : 'text-slate-400 hover:bg-slate-100'
                           }`}
-                          title={item.published ? 'Published' : 'Draft'}
+                          title={item.published ? 'Dipublikasikan' : 'Draft'}
                         >
                           {item.published ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
                         </button>
                         <button
                           type="button"
                           onClick={() => handleEdit(item)}
-                          className="p-1.5 rounded-lg text-slate-600 hover:text-emerald-800 hover:bg-slate-100"
+                          className="p-1.5 rounded-lg text-slate-600 hover:text-emerald-800 hover:bg-slate-100 cursor-pointer"
+                          title="Edit Artikel"
                         >
                           <Edit2 className="w-4 h-4" />
                         </button>
@@ -213,6 +266,13 @@ export const AdminArticlesView: React.FC = () => {
           )}
         </div>
       )}
+
+      {/* SHARE MODAL */}
+      <ShareModal
+        isOpen={isShareModalOpen}
+        item={shareTarget}
+        onClose={() => setIsShareModalOpen(false)}
+      />
     </div>
   );
 };

@@ -22,14 +22,20 @@ function MainApplication() {
   // Automatically monitor and record visitor pageviews and active heartbeat
   useVisitorTracker(activePublicTab, viewMode);
 
-  // Listen to hash changes for deep linking (e.g. #admin, #program)
+  // Listen to hash changes for deep linking (e.g. #admin, #informasi?tipe=berita&id=xxx, #program)
   useEffect(() => {
     const handleHashChange = () => {
-      const hash = window.location.hash.replace('#', '').toLowerCase();
-      if (hash === 'admin') {
+      const rawHash = window.location.hash.replace('#', '');
+      const [baseHash] = rawHash.split('?');
+      const cleanHash = (baseHash || '').toLowerCase();
+
+      if (cleanHash === 'admin') {
         setViewMode('admin');
-      } else if (['beranda', 'tentang', 'identitas', 'program', 'informasi', 'dokumentasi', 'kontak'].includes(hash)) {
-        setActivePublicTab(hash);
+      } else if (['beranda', 'tentang', 'identitas', 'program', 'informasi', 'dokumentasi', 'kontak'].includes(cleanHash)) {
+        setActivePublicTab(cleanHash);
+        setViewMode('public');
+      } else if (cleanHash.startsWith('berita') || cleanHash.startsWith('artikel') || cleanHash.startsWith('pengumuman')) {
+        setActivePublicTab('informasi');
         setViewMode('public');
       }
     };
@@ -42,6 +48,12 @@ function MainApplication() {
   const handleSelectTab = (tab: string) => {
     setActivePublicTab(tab);
     window.location.hash = tab;
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleOpenNewsDetail = (id: string) => {
+    window.location.hash = `informasi?tipe=berita&id=${encodeURIComponent(id)}`;
+    setActivePublicTab('informasi');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -76,7 +88,7 @@ function MainApplication() {
 
       <main className="flex-1 w-full">
         {activePublicTab === 'beranda' && (
-          <HomeView onSelectTab={handleSelectTab} />
+          <HomeView onSelectTab={handleSelectTab} onOpenNewsDetail={handleOpenNewsDetail} />
         )}
         {activePublicTab === 'tentang' && (
           <AboutView onSelectTab={handleSelectTab} />

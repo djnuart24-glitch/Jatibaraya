@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useJatibarayaData } from '../../context/DataContext';
 import { NewsItem, ArticleItem, AnnouncementItem } from '../../types';
 import {
@@ -12,6 +12,8 @@ import {
   Search,
   Share2,
 } from 'lucide-react';
+import { ShareModal } from '../../components/common/ShareModal';
+import { ShareableItem } from '../../utils/shareUtils';
 
 export const NewsView: React.FC = () => {
   const { data } = useJatibarayaData();
@@ -22,9 +24,83 @@ export const NewsView: React.FC = () => {
   const [activeNewsModal, setActiveNewsModal] = useState<NewsItem | null>(null);
   const [activeArticleModal, setActiveArticleModal] = useState<ArticleItem | null>(null);
 
+  // Share Modal State
+  const [shareTarget, setShareTarget] = useState<ShareableItem | null>(null);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+
+  const handleOpenShare = (item: ShareableItem) => {
+    setShareTarget(item);
+    setIsShareModalOpen(true);
+  };
+
   const publishedNews = news.filter((n) => n.published);
   const publishedArticles = articles.filter((a) => a.published);
   const publishedAnnouncements = announcements.filter((a) => a.published);
+
+  // Deep linking: parse #informasi?tipe=berita&id=xxx or #berita-xxx
+  useEffect(() => {
+    const handleCheckHash = () => {
+      const rawHash = window.location.hash.replace('#', '');
+      if (!rawHash) return;
+
+      if (rawHash.includes('?')) {
+        const [, query] = rawHash.split('?');
+        const params = new URLSearchParams(query);
+        const tipe = params.get('tipe') || params.get('type');
+        const id = params.get('id');
+
+        if (tipe === 'berita') {
+          setActiveTab('berita');
+          if (id) {
+            const found = news.find((n) => n.id === id);
+            if (found) setActiveNewsModal(found);
+          }
+        } else if (tipe === 'artikel') {
+          setActiveTab('artikel');
+          if (id) {
+            const found = articles.find((a) => a.id === id);
+            if (found) setActiveArticleModal(found);
+          }
+        } else if (tipe === 'pengumuman') {
+          setActiveTab('pengumuman');
+        }
+      } else if (rawHash.startsWith('berita-')) {
+        const id = rawHash.replace('berita-', '');
+        setActiveTab('berita');
+        const found = news.find((n) => n.id === id);
+        if (found) setActiveNewsModal(found);
+      } else if (rawHash.startsWith('artikel-')) {
+        const id = rawHash.replace('artikel-', '');
+        setActiveTab('artikel');
+        const found = articles.find((a) => a.id === id);
+        if (found) setActiveArticleModal(found);
+      }
+    };
+
+    handleCheckHash();
+    window.addEventListener('hashchange', handleCheckHash);
+    return () => window.removeEventListener('hashchange', handleCheckHash);
+  }, [news, articles]);
+
+  const handleOpenNewsModal = (item: NewsItem) => {
+    setActiveNewsModal(item);
+    window.location.hash = `informasi?tipe=berita&id=${encodeURIComponent(item.id)}`;
+  };
+
+  const handleCloseNewsModal = () => {
+    setActiveNewsModal(null);
+    window.location.hash = 'informasi';
+  };
+
+  const handleOpenArticleModal = (item: ArticleItem) => {
+    setActiveArticleModal(item);
+    window.location.hash = `informasi?tipe=artikel&id=${encodeURIComponent(item.id)}`;
+  };
+
+  const handleCloseArticleModal = () => {
+    setActiveArticleModal(null);
+    window.location.hash = 'informasi';
+  };
 
   const filteredNews = publishedNews.filter((n) =>
     n.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -48,7 +124,7 @@ export const NewsView: React.FC = () => {
           Berita, Artikel & Pengumuman
         </h1>
         <p className="text-base text-slate-600 leading-relaxed">
-          Wadah informasi resmi, pengumuman jadwal kegiatan santri Priangan, serta tulisan inspiratif warga Jatibaraya.
+          Wadah informasi resmi, pengumuman jadwal kegiatan santri Priangan, serta tulisan inspiratif warga Jatibaraya yang dapat dibaca dan disebarluaskan.
         </p>
       </div>
 
@@ -58,27 +134,47 @@ export const NewsView: React.FC = () => {
           {publishedAnnouncements.map((ann) => (
             <div
               key={ann.id}
-              className={`p-4 rounded-2xl flex items-start gap-3 border ${
+              className={`p-4 sm:p-5 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border ${
                 ann.priority === 'penting'
                   ? 'bg-amber-50/80 border-amber-300 text-amber-950'
                   : 'bg-emerald-50/80 border-emerald-300 text-emerald-950'
               }`}
             >
-              <AlertCircle
-                className={`w-5 h-5 flex-shrink-0 mt-0.5 ${
-                  ann.priority === 'penting' ? 'text-amber-600' : 'text-emerald-700'
-                }`}
-              />
-              <div className="flex-1 space-y-1">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-bold uppercase tracking-wider font-mono">
-                    Pengumuman {ann.priority === 'penting' ? 'Penting' : 'Resmi'}
-                  </span>
-                  <span className="text-[11px] text-slate-500 font-mono">{ann.date}</span>
+              <div className="flex items-start gap-3 flex-1">
+                <AlertCircle
+                  className={`w-5 h-5 flex-shrink-0 mt-0.5 ${
+                    ann.priority === 'penting' ? 'text-amber-600' : 'text-emerald-700'
+                  }`}
+                />
+                <div className="flex-1 space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] font-bold uppercase tracking-wider font-mono">
+                      Pengumuman {ann.priority === 'penting' ? 'Penting' : 'Resmi'}
+                    </span>
+                    <span className="text-[11px] text-slate-500 font-mono">• {ann.date}</span>
+                  </div>
+                  <h4 className="text-sm font-bold">{ann.title}</h4>
+                  <p className="text-xs leading-relaxed text-slate-700">{ann.content}</p>
                 </div>
-                <h4 className="text-sm font-bold">{ann.title}</h4>
-                <p className="text-xs leading-relaxed text-slate-700">{ann.content}</p>
               </div>
+
+              <button
+                onClick={() =>
+                  handleOpenShare({
+                    id: ann.id,
+                    title: ann.title,
+                    content: ann.content,
+                    category: `Pengumuman ${ann.priority}`,
+                    date: ann.date,
+                    type: 'pengumuman',
+                  })
+                }
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-xs font-semibold shadow-2xs transition-colors cursor-pointer self-end sm:self-auto flex-shrink-0"
+                title="Bagikan Pengumuman"
+              >
+                <Share2 className="w-3.5 h-3.5 text-emerald-700" />
+                <span>Bagikan</span>
+              </button>
             </div>
           ))}
         </div>
@@ -150,7 +246,7 @@ export const NewsView: React.FC = () => {
               {filteredNews.map((item) => (
                 <article
                   key={item.id}
-                  className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs hover:shadow-md transition-all flex flex-col justify-between"
+                  className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs hover:shadow-md transition-all flex flex-col justify-between group"
                 >
                   <div>
                     <div className="h-48 bg-slate-100 relative overflow-hidden">
@@ -158,7 +254,7 @@ export const NewsView: React.FC = () => {
                         <img
                           src={item.imageUrl}
                           alt={item.title}
-                          className="w-full h-full object-cover hover:scale-105 transition-transform duration-500"
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                         />
                       ) : (
                         <div className="w-full h-full bg-gradient-to-br from-emerald-900 to-slate-900 flex items-center justify-center p-4 text-center">
@@ -182,7 +278,10 @@ export const NewsView: React.FC = () => {
                         <span>{item.author}</span>
                       </div>
 
-                      <h3 className="text-lg font-serif font-bold text-slate-900 hover:text-emerald-800 transition-colors line-clamp-2">
+                      <h3
+                        onClick={() => handleOpenNewsModal(item)}
+                        className="text-lg font-serif font-bold text-slate-900 hover:text-emerald-800 transition-colors line-clamp-2 cursor-pointer"
+                      >
                         {item.title}
                       </h3>
 
@@ -194,11 +293,32 @@ export const NewsView: React.FC = () => {
 
                   <div className="p-6 pt-0 border-t border-slate-100 flex items-center justify-between">
                     <button
-                      onClick={() => setActiveNewsModal(item)}
-                      className="text-xs font-semibold text-emerald-800 hover:text-emerald-950 inline-flex items-center gap-1 cursor-pointer"
+                      onClick={() => handleOpenNewsModal(item)}
+                      className="text-xs font-semibold text-emerald-800 hover:text-emerald-950 inline-flex items-center gap-1 cursor-pointer py-1"
                     >
                       <span>Baca Selengkapnya</span>
                       <ChevronRight className="w-3.5 h-3.5 text-amber-600" />
+                    </button>
+
+                    <button
+                      onClick={() =>
+                        handleOpenShare({
+                          id: item.id,
+                          title: item.title,
+                          summary: item.summary,
+                          content: item.content,
+                          category: item.category,
+                          author: item.author,
+                          date: item.date,
+                          type: 'berita',
+                          imageUrl: item.imageUrl,
+                        })
+                      }
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-600 hover:text-emerald-900 hover:bg-emerald-50 border border-transparent hover:border-emerald-200 transition-all cursor-pointer"
+                      title="Bagikan Berita Ini"
+                    >
+                      <Share2 className="w-3.5 h-3.5 text-emerald-700" />
+                      <span>Bagikan</span>
                     </button>
                   </div>
                 </article>
@@ -235,7 +355,10 @@ export const NewsView: React.FC = () => {
                       <span className="text-slate-500">{item.date}</span>
                     </div>
 
-                    <h3 className="text-xl font-serif font-bold text-slate-900 hover:text-emerald-800 transition-colors">
+                    <h3
+                      onClick={() => handleOpenArticleModal(item)}
+                      className="text-xl font-serif font-bold text-slate-900 hover:text-emerald-800 transition-colors cursor-pointer"
+                    >
                       {item.title}
                     </h3>
 
@@ -249,13 +372,35 @@ export const NewsView: React.FC = () => {
                       <User className="w-3.5 h-3.5 text-slate-400" />
                       <span>Penulis: <strong>{item.author}</strong></span>
                     </div>
-                    <button
-                      onClick={() => setActiveArticleModal(item)}
-                      className="text-xs font-semibold text-emerald-800 hover:text-emerald-950 inline-flex items-center gap-1 cursor-pointer"
-                    >
-                      <span>Baca Artikel</span>
-                      <ChevronRight className="w-3.5 h-3.5 text-amber-600" />
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() =>
+                          handleOpenShare({
+                            id: item.id,
+                            title: item.title,
+                            summary: item.summary,
+                            content: item.content,
+                            category: item.category,
+                            author: item.author,
+                            date: item.date,
+                            type: 'artikel',
+                          })
+                        }
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-600 hover:text-emerald-900 hover:bg-emerald-50 border border-slate-200 hover:border-emerald-200 transition-all cursor-pointer"
+                        title="Bagikan Artikel Ini"
+                      >
+                        <Share2 className="w-3.5 h-3.5 text-emerald-700" />
+                        <span>Bagikan</span>
+                      </button>
+
+                      <button
+                        onClick={() => handleOpenArticleModal(item)}
+                        className="text-xs font-semibold text-emerald-800 hover:text-emerald-950 inline-flex items-center gap-1 cursor-pointer py-1.5 px-2"
+                      >
+                        <span>Baca Artikel</span>
+                        <ChevronRight className="w-3.5 h-3.5 text-amber-600" />
+                      </button>
+                    </div>
                   </div>
                 </article>
               ))}
@@ -275,18 +420,37 @@ export const NewsView: React.FC = () => {
             publishedAnnouncements.map((ann) => (
               <div
                 key={ann.id}
-                className="bg-white rounded-2xl p-6 border border-slate-200 shadow-xs space-y-3"
+                className="bg-white rounded-2xl p-6 border border-slate-200 shadow-xs space-y-4"
               >
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold font-mono text-emerald-800">
                     STATUS: {ann.priority.toUpperCase()}
                   </span>
-                  <span className="text-xs text-slate-500">{ann.date}</span>
+                  <span className="text-xs text-slate-500 font-mono">{ann.date}</span>
                 </div>
                 <h3 className="text-lg font-serif font-bold text-slate-900">{ann.title}</h3>
                 <p className="text-xs text-slate-700 leading-relaxed whitespace-pre-line">
                   {ann.content}
                 </p>
+
+                <div className="pt-3 border-t border-slate-100 flex justify-end">
+                  <button
+                    onClick={() =>
+                      handleOpenShare({
+                        id: ann.id,
+                        title: ann.title,
+                        content: ann.content,
+                        category: `Pengumuman ${ann.priority}`,
+                        date: ann.date,
+                        type: 'pengumuman',
+                      })
+                    }
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold text-emerald-900 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 transition-all cursor-pointer"
+                  >
+                    <Share2 className="w-3.5 h-3.5 text-emerald-700" />
+                    <span>Bagikan Pengumuman ke WA / Media Sosial</span>
+                  </button>
+                </div>
               </div>
             ))
           )}
@@ -297,12 +461,36 @@ export const NewsView: React.FC = () => {
       {activeNewsModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-in fade-in">
           <div className="bg-white rounded-3xl max-w-2xl w-full p-6 sm:p-8 shadow-2xl border border-slate-200 space-y-6 relative max-h-[90vh] overflow-y-auto">
-            <button
-              onClick={() => setActiveNewsModal(null)}
-              className="absolute top-5 right-5 p-2 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer"
-            >
-              <X className="w-5 h-5" />
-            </button>
+            {/* Top Action Row */}
+            <div className="flex items-center justify-end gap-2">
+              <button
+                onClick={() =>
+                  handleOpenShare({
+                    id: activeNewsModal.id,
+                    title: activeNewsModal.title,
+                    summary: activeNewsModal.summary,
+                    content: activeNewsModal.content,
+                    category: activeNewsModal.category,
+                    author: activeNewsModal.author,
+                    date: activeNewsModal.date,
+                    type: 'berita',
+                    imageUrl: activeNewsModal.imageUrl,
+                  })
+                }
+                className="p-2 rounded-full text-slate-500 hover:text-emerald-800 hover:bg-emerald-50 cursor-pointer flex items-center gap-1 text-xs font-semibold transition-colors"
+                title="Bagikan Berita Ini"
+              >
+                <Share2 className="w-4 h-4 text-emerald-700" />
+                <span className="hidden sm:inline">Bagikan</span>
+              </button>
+              <button
+                onClick={handleCloseNewsModal}
+                className="p-2 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer transition-colors"
+                title="Tutup Modal"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
 
             {activeNewsModal.imageUrl && (
               <div className="h-60 rounded-2xl overflow-hidden bg-slate-100 border border-slate-200">
@@ -331,10 +519,31 @@ export const NewsView: React.FC = () => {
               {activeNewsModal.content}
             </div>
 
-            <div className="pt-4 border-t border-slate-100 flex justify-end">
+            {/* Modal Bottom Actions */}
+            <div className="pt-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3">
               <button
-                onClick={() => setActiveNewsModal(null)}
-                className="px-5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold text-xs cursor-pointer"
+                onClick={() =>
+                  handleOpenShare({
+                    id: activeNewsModal.id,
+                    title: activeNewsModal.title,
+                    summary: activeNewsModal.summary,
+                    content: activeNewsModal.content,
+                    category: activeNewsModal.category,
+                    author: activeNewsModal.author,
+                    date: activeNewsModal.date,
+                    type: 'berita',
+                    imageUrl: activeNewsModal.imageUrl,
+                  })
+                }
+                className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-emerald-800 hover:bg-emerald-700 text-white font-semibold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow-xs"
+              >
+                <Share2 className="w-3.5 h-3.5 text-amber-300" />
+                <span>Bagikan ke WhatsApp & Medsos</span>
+              </button>
+
+              <button
+                onClick={handleCloseNewsModal}
+                className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold text-xs cursor-pointer text-center"
               >
                 Tutup Berita
               </button>
@@ -347,12 +556,35 @@ export const NewsView: React.FC = () => {
       {activeArticleModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-in fade-in">
           <div className="bg-white rounded-3xl max-w-2xl w-full p-6 sm:p-8 shadow-2xl border border-slate-200 space-y-6 relative max-h-[90vh] overflow-y-auto">
-            <button
-              onClick={() => setActiveArticleModal(null)}
-              className="absolute top-5 right-5 p-2 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer"
-            >
-              <X className="w-5 h-5" />
-            </button>
+            {/* Top Action Row */}
+            <div className="flex items-center justify-end gap-2">
+              <button
+                onClick={() =>
+                  handleOpenShare({
+                    id: activeArticleModal.id,
+                    title: activeArticleModal.title,
+                    summary: activeArticleModal.summary,
+                    content: activeArticleModal.content,
+                    category: activeArticleModal.category,
+                    author: activeArticleModal.author,
+                    date: activeArticleModal.date,
+                    type: 'artikel',
+                  })
+                }
+                className="p-2 rounded-full text-slate-500 hover:text-emerald-800 hover:bg-emerald-50 cursor-pointer flex items-center gap-1 text-xs font-semibold transition-colors"
+                title="Bagikan Artikel Ini"
+              >
+                <Share2 className="w-4 h-4 text-emerald-700" />
+                <span className="hidden sm:inline">Bagikan</span>
+              </button>
+              <button
+                onClick={handleCloseArticleModal}
+                className="p-2 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer transition-colors"
+                title="Tutup Modal"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
 
             <div className="space-y-3">
               <div className="flex items-center gap-3 text-xs text-slate-500">
@@ -371,10 +603,30 @@ export const NewsView: React.FC = () => {
               {activeArticleModal.content}
             </div>
 
-            <div className="pt-4 border-t border-slate-100 flex justify-end">
+            {/* Modal Bottom Actions */}
+            <div className="pt-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3">
               <button
-                onClick={() => setActiveArticleModal(null)}
-                className="px-5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold text-xs cursor-pointer"
+                onClick={() =>
+                  handleOpenShare({
+                    id: activeArticleModal.id,
+                    title: activeArticleModal.title,
+                    summary: activeArticleModal.summary,
+                    content: activeArticleModal.content,
+                    category: activeArticleModal.category,
+                    author: activeArticleModal.author,
+                    date: activeArticleModal.date,
+                    type: 'artikel',
+                  })
+                }
+                className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-emerald-800 hover:bg-emerald-700 text-white font-semibold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow-xs"
+              >
+                <Share2 className="w-3.5 h-3.5 text-amber-300" />
+                <span>Bagikan ke WhatsApp & Medsos</span>
+              </button>
+
+              <button
+                onClick={handleCloseArticleModal}
+                className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold text-xs cursor-pointer text-center"
               >
                 Tutup Artikel
               </button>
@@ -382,6 +634,13 @@ export const NewsView: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* SHARE MODAL */}
+      <ShareModal
+        isOpen={isShareModalOpen}
+        item={shareTarget}
+        onClose={() => setIsShareModalOpen(false)}
+      />
     </div>
   );
 };

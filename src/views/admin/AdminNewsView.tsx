@@ -3,6 +3,8 @@ import { useJatibarayaData } from '../../context/DataContext';
 import { NewsItem } from '../../types';
 import { RichTextEditor } from '../../components/admin/RichTextEditor';
 import { ConfirmModal } from '../../components/common/ConfirmModal';
+import { ShareModal } from '../../components/common/ShareModal';
+import { ShareableItem } from '../../utils/shareUtils';
 import {
   Plus,
   Edit2,
@@ -13,6 +15,7 @@ import {
   User,
   CheckCircle2,
   Newspaper,
+  Share2,
 } from 'lucide-react';
 
 export const AdminNewsView: React.FC = () => {
@@ -23,6 +26,15 @@ export const AdminNewsView: React.FC = () => {
   const [editingItem, setEditingItem] = useState<NewsItem | null>(null);
   const [toastMessage, setToastMessage] = useState('');
   const [itemToDelete, setItemToDelete] = useState<{ id: string; title: string } | null>(null);
+
+  // Share Modal
+  const [shareTarget, setShareTarget] = useState<ShareableItem | null>(null);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+
+  const handleOpenShare = (item: ShareableItem) => {
+    setShareTarget(item);
+    setIsShareModalOpen(true);
+  };
 
   const newsCategories = [
     'Berita Umum',
@@ -65,15 +77,33 @@ export const AdminNewsView: React.FC = () => {
     imageUrl?: string;
     published: boolean;
   }) => {
+    let targetShare: ShareableItem;
     if (editingItem) {
       updateNews(editingItem.id, savedData);
       showNotice(`Berita "${savedData.title}" berhasil diperbarui.`);
+      targetShare = {
+        id: editingItem.id,
+        ...savedData,
+        type: 'berita',
+      };
     } else {
-      addNews(savedData);
+      const created = addNews(savedData);
       showNotice(`Berita "${savedData.title}" berhasil diterbitkan.`);
+      targetShare = {
+        id: created.id,
+        ...savedData,
+        type: 'berita',
+      };
     }
     setIsEditing(false);
     setEditingItem(null);
+
+    // If published, automatically open share dialog so admin can share straight away
+    if (savedData.published) {
+      setTimeout(() => {
+        handleOpenShare(targetShare);
+      }, 200);
+    }
   };
 
   const showNotice = (msg: string) => {
@@ -83,21 +113,20 @@ export const AdminNewsView: React.FC = () => {
 
   return (
     <div className="space-y-6 pb-28 sm:pb-12">
-      {/* Toast */}
+      {/* Toast Notice */}
       {toastMessage && (
-        <div className="fixed top-6 right-6 z-50 p-4 rounded-2xl bg-emerald-900 text-white shadow-xl border border-emerald-700 text-xs font-semibold flex items-center gap-2 animate-in slide-in-from-top">
+        <div className="p-4 rounded-2xl bg-emerald-900 text-white text-xs font-semibold flex items-center gap-2 shadow-lg animate-in fade-in">
           <CheckCircle2 className="w-4 h-4 text-amber-400" />
           <span>{toastMessage}</span>
         </div>
       )}
 
-      {/* Confirmation Modal */}
+      {/* Delete Confirmation Modal */}
       <ConfirmModal
         isOpen={Boolean(itemToDelete)}
         title="Hapus Berita?"
-        message={`Apakah Anda yakin ingin menghapus berita "${itemToDelete?.title || 'ini'}"? Tindakan ini akan menghapus berita dari portal dan cloud database.`}
+        message={`Apakah Anda yakin ingin menghapus berita "${itemToDelete?.title}"? Tindakan ini tidak dapat dibatalkan.`}
         confirmText="Ya, Hapus Berita"
-        cancelText="Batal"
         isDanger={true}
         onConfirm={confirmDeleteNews}
         onCancel={() => setItemToDelete(null)}
@@ -110,7 +139,7 @@ export const AdminNewsView: React.FC = () => {
             6. Manajemen Berita Resmi
           </h1>
           <p className="text-xs text-slate-500 mt-1">
-            Publikasikan warta kegiatan, siaran pers, dan dokumentasi khidmah santri Priangan.
+            Publikasikan kabar seputar kegiatan santri Priangan, rombongan, serta informasi dakwah.
           </p>
         </div>
 
@@ -126,6 +155,7 @@ export const AdminNewsView: React.FC = () => {
         )}
       </div>
 
+      {/* Form or List */}
       {isEditing ? (
         <RichTextEditor
           initialTitle={editingItem?.title}
@@ -135,7 +165,7 @@ export const AdminNewsView: React.FC = () => {
           initialAuthor={editingItem?.author}
           initialDate={editingItem?.date}
           initialImageUrl={editingItem?.imageUrl}
-          initialPublished={editingItem?.published ?? true}
+          initialPublished={editingItem?.published}
           categories={newsCategories}
           typeLabel="Berita"
           onSave={handleSave}
@@ -145,7 +175,7 @@ export const AdminNewsView: React.FC = () => {
           }}
         />
       ) : (
-        /* NEWS LIST (CARDS) */
+        /* NEWS LIST */
         <div className="space-y-4">
           {news.length === 0 ? (
             <div className="p-12 rounded-3xl bg-white border border-slate-200 text-center text-slate-500 text-xs">
@@ -164,20 +194,43 @@ export const AdminNewsView: React.FC = () => {
                         {item.category}
                       </span>
                       <div className="flex items-center gap-1">
+                        {item.published && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleOpenShare({
+                                id: item.id,
+                                title: item.title,
+                                summary: item.summary,
+                                content: item.content,
+                                category: item.category,
+                                author: item.author,
+                                date: item.date,
+                                type: 'berita',
+                                imageUrl: item.imageUrl,
+                              })
+                            }
+                            className="p-1.5 rounded-lg text-emerald-700 hover:text-emerald-950 hover:bg-emerald-50 transition-colors"
+                            title="Bagikan Berita (WhatsApp / Salin Link)"
+                          >
+                            <Share2 className="w-4 h-4 text-emerald-700" />
+                          </button>
+                        )}
                         <button
                           type="button"
                           onClick={() => handleTogglePublish(item)}
                           className={`p-1.5 rounded-lg text-xs ${
                             item.published ? 'text-emerald-700 hover:bg-emerald-50' : 'text-slate-400 hover:bg-slate-100'
                           }`}
-                          title={item.published ? 'Published' : 'Draft'}
+                          title={item.published ? 'Dipublikasikan' : 'Draft'}
                         >
                           {item.published ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
                         </button>
                         <button
                           type="button"
                           onClick={() => handleEdit(item)}
-                          className="p-1.5 rounded-lg text-slate-600 hover:text-emerald-800 hover:bg-slate-100"
+                          className="p-1.5 rounded-lg text-slate-600 hover:text-emerald-800 hover:bg-slate-100 cursor-pointer"
+                          title="Edit Berita"
                         >
                           <Edit2 className="w-4 h-4" />
                         </button>
@@ -214,6 +267,13 @@ export const AdminNewsView: React.FC = () => {
           )}
         </div>
       )}
+
+      {/* SHARE MODAL */}
+      <ShareModal
+        isOpen={isShareModalOpen}
+        item={shareTarget}
+        onClose={() => setIsShareModalOpen(false)}
+      />
     </div>
   );
 };

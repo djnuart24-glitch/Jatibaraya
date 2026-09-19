@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useJatibarayaData } from '../../context/DataContext';
 import { JatibarayaLogo, JatibarayaOfficialEmblem } from '../../components/common/JatibarayaLogo';
 import {
@@ -13,7 +13,10 @@ import {
   Clock,
   Layers,
   Award,
+  Share2,
 } from 'lucide-react';
+import { ShareModal } from '../../components/common/ShareModal';
+import { ShareableItem } from '../../utils/shareUtils';
 
 interface HomeViewProps {
   onSelectTab: (tab: string) => void;
@@ -38,6 +41,14 @@ export const HomeView: React.FC<HomeViewProps> = ({
   const latestNews = news.filter((n) => n.published).slice(0, 3);
   const latestArticles = articles.filter((a) => a.published).slice(0, 2);
   const highlightMedia = media.slice(0, 4);
+
+  const [shareTarget, setShareTarget] = useState<ShareableItem | null>(null);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+
+  const handleOpenShare = (item: ShareableItem) => {
+    setShareTarget(item);
+    setIsShareModalOpen(true);
+  };
 
   return (
     <div className="space-y-20 pb-20">
@@ -366,16 +377,42 @@ export const HomeView: React.FC<HomeViewProps> = ({
                     <p className="text-xs text-slate-600 line-clamp-2">
                       {item.summary}
                     </p>
-                    <button
-                      onClick={() => {
-                        if (onOpenNewsDetail) onOpenNewsDetail(item.id);
-                        else onSelectTab('informasi');
-                      }}
-                      className="text-xs font-semibold text-emerald-800 hover:text-emerald-950 inline-flex items-center gap-1 pt-1 cursor-pointer"
-                    >
-                      <span>Baca Selengkapnya</span>
-                      <ChevronRight className="w-3.5 h-3.5 text-amber-600" />
-                    </button>
+                    <div className="flex items-center justify-between pt-2">
+                      <button
+                        onClick={() => {
+                          if (onOpenNewsDetail) onOpenNewsDetail(item.id);
+                          else {
+                            window.location.hash = `informasi?tipe=berita&id=${encodeURIComponent(item.id)}`;
+                            onSelectTab('informasi');
+                          }
+                        }}
+                        className="text-xs font-semibold text-emerald-800 hover:text-emerald-950 inline-flex items-center gap-1 cursor-pointer"
+                      >
+                        <span>Baca Selengkapnya</span>
+                        <ChevronRight className="w-3.5 h-3.5 text-amber-600" />
+                      </button>
+
+                      <button
+                        onClick={() =>
+                          handleOpenShare({
+                            id: item.id,
+                            title: item.title,
+                            summary: item.summary,
+                            content: item.content,
+                            category: item.category,
+                            author: item.author,
+                            date: item.date,
+                            type: 'berita',
+                            imageUrl: item.imageUrl,
+                          })
+                        }
+                        className="inline-flex items-center gap-1 text-xs font-semibold text-slate-500 hover:text-emerald-900 hover:bg-emerald-50 px-2 py-1 rounded-lg border border-transparent hover:border-emerald-200 transition-all cursor-pointer"
+                        title="Bagikan Berita"
+                      >
+                        <Share2 className="w-3.5 h-3.5 text-emerald-700" />
+                        <span>Bagikan</span>
+                      </button>
+                    </div>
                   </div>
                 </article>
               ))
@@ -409,12 +446,37 @@ export const HomeView: React.FC<HomeViewProps> = ({
                   </p>
                   <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs">
                     <span className="text-slate-500">Oleh: <strong className="text-slate-700 font-medium">{art.author}</strong></span>
-                    <button
-                      onClick={() => onSelectTab('informasi')}
-                      className="font-semibold text-emerald-800 hover:text-emerald-950 cursor-pointer"
-                    >
-                      Baca Artikel
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() =>
+                          handleOpenShare({
+                            id: art.id,
+                            title: art.title,
+                            summary: art.summary,
+                            content: art.content,
+                            category: art.category,
+                            author: art.author,
+                            date: art.date,
+                            type: 'artikel',
+                          })
+                        }
+                        className="inline-flex items-center gap-1 text-xs font-semibold text-slate-500 hover:text-emerald-900 hover:bg-emerald-50 px-2 py-1 rounded-lg border border-transparent hover:border-emerald-200 transition-all cursor-pointer"
+                        title="Bagikan Artikel"
+                      >
+                        <Share2 className="w-3.5 h-3.5 text-emerald-700" />
+                        <span>Bagikan</span>
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          window.location.hash = `informasi?tipe=artikel&id=${encodeURIComponent(art.id)}`;
+                          onSelectTab('informasi');
+                        }}
+                        className="font-semibold text-emerald-800 hover:text-emerald-950 cursor-pointer py-1 px-1.5"
+                      >
+                        Baca Artikel
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))
@@ -508,6 +570,13 @@ export const HomeView: React.FC<HomeViewProps> = ({
           </div>
         </div>
       </section>
+
+      {/* SHARE MODAL */}
+      <ShareModal
+        isOpen={isShareModalOpen}
+        item={shareTarget}
+        onClose={() => setIsShareModalOpen(false)}
+      />
     </div>
   );
 };

@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { useJatibarayaData } from '../../context/DataContext';
 import { AnnouncementItem } from '../../types';
 import { ConfirmModal } from '../../components/common/ConfirmModal';
+import { ShareModal } from '../../components/common/ShareModal';
+import { ShareableItem } from '../../utils/shareUtils';
 import {
   Plus,
   Edit2,
@@ -13,6 +15,7 @@ import {
   Save,
   X,
   AlertTriangle,
+  Share2,
 } from 'lucide-react';
 
 export const AdminAnnouncementsView: React.FC = () => {
@@ -23,6 +26,15 @@ export const AdminAnnouncementsView: React.FC = () => {
   const [editingItem, setEditingItem] = useState<AnnouncementItem | null>(null);
   const [toastMessage, setToastMessage] = useState('');
   const [itemToDelete, setItemToDelete] = useState<{ id: string; title: string } | null>(null);
+
+  // Share Modal
+  const [shareTarget, setShareTarget] = useState<ShareableItem | null>(null);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+
+  const handleOpenShare = (item: ShareableItem) => {
+    setShareTarget(item);
+    setIsShareModalOpen(true);
+  };
 
   // Form
   const [title, setTitle] = useState('');
@@ -58,6 +70,7 @@ export const AdminAnnouncementsView: React.FC = () => {
       return;
     }
 
+    let targetShare: ShareableItem;
     if (editingItem) {
       updateAnnouncement(editingItem.id, {
         title: title.trim(),
@@ -67,8 +80,16 @@ export const AdminAnnouncementsView: React.FC = () => {
         published,
       });
       showNotice(`Pengumuman "${title}" berhasil diperbarui.`);
+      targetShare = {
+        id: editingItem.id,
+        title: title.trim(),
+        content: content.trim(),
+        category: `Pengumuman ${priority}`,
+        date,
+        type: 'pengumuman',
+      };
     } else {
-      addAnnouncement({
+      const created = addAnnouncement({
         title: title.trim(),
         content: content.trim(),
         priority,
@@ -76,10 +97,24 @@ export const AdminAnnouncementsView: React.FC = () => {
         published,
       });
       showNotice(`Pengumuman "${title}" berhasil dibuat.`);
+      targetShare = {
+        id: created.id,
+        title: title.trim(),
+        content: content.trim(),
+        category: `Pengumuman ${priority}`,
+        date,
+        type: 'pengumuman',
+      };
     }
 
     setIsFormOpen(false);
     setEditingItem(null);
+
+    if (published) {
+      setTimeout(() => {
+        handleOpenShare(targetShare);
+      }, 200);
+    }
   };
 
   const confirmDeleteAnnouncement = () => {
@@ -125,16 +160,15 @@ export const AdminAnnouncementsView: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200">
         <div>
           <h1 className="text-2xl font-serif font-bold text-slate-900">
-            8. Manajemen Pengumuman
+            5. Manajemen Pengumuman
           </h1>
           <p className="text-xs text-slate-500 mt-1">
-            Siarkan maklumat penting rombongan, safari, atau agenda mendesak organisasi.
+            Siarkan maklumat penting, instruksi kegiatan, jadwal rombongan, atau pesan darurat.
           </p>
         </div>
 
         {!isFormOpen && (
           <button
-            id="admin-add-announcement-btn"
             onClick={handleStartCreate}
             className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-800 hover:bg-emerald-900 text-white text-xs font-semibold shadow-xs cursor-pointer"
           >
@@ -144,98 +178,113 @@ export const AdminAnnouncementsView: React.FC = () => {
         )}
       </div>
 
-      {/* FORM */}
+      {/* CREATE / EDIT FORM */}
       {isFormOpen && (
         <form
           onSubmit={handleSave}
-          className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-md space-y-4 animate-in fade-in"
+          className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-6 animate-in fade-in"
         >
-          <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+          <div className="flex items-center justify-between pb-4 border-b border-slate-100">
             <h2 className="text-lg font-serif font-bold text-slate-900">
-              {editingItem ? 'Edit Pengumuman' : 'Pengumuman Baru'}
+              {editingItem ? 'Edit Pengumuman' : 'Buat Pengumuman Baru'}
             </h2>
             <button
               type="button"
-              onClick={() => setIsFormOpen(false)}
-              className="p-1.5 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100"
+              onClick={() => {
+                setIsFormOpen(false);
+                setEditingItem(null);
+              }}
+              className="p-2 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100"
             >
               <X className="w-5 h-5" />
             </button>
           </div>
 
           <div className="space-y-4">
-            <div className="space-y-1">
-              <label className="text-xs font-bold text-slate-700">Judul Maklumat / Pengumuman *</label>
+            <div>
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                Judul Pengumuman *
+              </label>
               <input
                 type="text"
                 required
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="Contoh: Titik Kumpul Keberangkatan Rombongan Liburan Santri"
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-medium"
+                placeholder="Contoh: Jadwal Kedatangan Rombongan Santri Tasikmalaya"
+                className="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-700/20 focus:border-emerald-700"
               />
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-700">Tingkat Prioritas</label>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                  Tingkat Prioritas
+                </label>
                 <select
                   value={priority}
                   onChange={(e) => setPriority(e.target.value as 'normal' | 'penting')}
-                  className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-xs font-medium"
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-700/20 focus:border-emerald-700"
                 >
-                  <option value="normal">Biasa (Informasi Reguler)</option>
-                  <option value="penting">Penting (Wajib Diperhatikan)</option>
+                  <option value="normal">Normal (Biasa)</option>
+                  <option value="penting">Penting / Darurat (Warna Kuning Emas)</option>
                 </select>
               </div>
 
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-700">Tanggal Pengumuman</label>
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                  Tanggal Berlaku
+                </label>
                 <input
                   type="date"
                   value={date}
                   onChange={(e) => setDate(e.target.value)}
-                  className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-xs font-medium"
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-700/20 focus:border-emerald-700"
                 />
+              </div>
+
+              <div className="flex items-center gap-3 pt-6">
+                <input
+                  type="checkbox"
+                  id="ann-publish"
+                  checked={published}
+                  onChange={(e) => setPublished(e.target.checked)}
+                  className="w-4 h-4 rounded text-emerald-800 focus:ring-emerald-700"
+                />
+                <label htmlFor="ann-publish" className="text-xs font-semibold text-slate-700 cursor-pointer">
+                  Tampilkan Langsung di Website
+                </label>
               </div>
             </div>
 
-            <div className="space-y-1">
-              <label className="text-xs font-bold text-slate-700">Isi Pesan Pengumuman *</label>
+            <div>
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                Isi / Pesan Pengumuman *
+              </label>
               <textarea
-                rows={4}
                 required
+                rows={5}
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
-                placeholder="Tulis rincian instruksi atau pemberitahuan resmi..."
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs leading-relaxed"
+                placeholder="Tuliskan detail maklumat, arahan waktu, tempat, atau instruksi bagi santri/alumni..."
+                className="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-700/20 focus:border-emerald-700 leading-relaxed"
               />
             </div>
-
-            <label className="flex items-center gap-2 p-3 rounded-xl border border-slate-200 bg-slate-50 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={published}
-                onChange={(e) => setPublished(e.target.checked)}
-                className="rounded text-emerald-800"
-              />
-              <span className="text-xs font-semibold text-slate-700">
-                Tayangkan langsung di website publik
-              </span>
-            </label>
           </div>
 
-          <div className="flex justify-end gap-3 pt-3 border-t border-slate-100">
+          <div className="pt-4 border-t border-slate-100 flex items-center justify-end gap-3">
             <button
               type="button"
-              onClick={() => setIsFormOpen(false)}
-              className="px-5 py-2 rounded-xl border border-slate-200 text-slate-600 text-xs font-semibold"
+              onClick={() => {
+                setIsFormOpen(false);
+                setEditingItem(null);
+              }}
+              className="px-5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50"
             >
               Batal
             </button>
             <button
               type="submit"
-              className="px-6 py-2 rounded-xl bg-emerald-800 hover:bg-emerald-900 text-white text-xs font-semibold flex items-center gap-1.5 shadow-xs"
+              className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-emerald-800 hover:bg-emerald-900 text-white text-xs font-semibold shadow-xs"
             >
               <Save className="w-4 h-4 text-amber-400" />
               <span>Simpan Pengumuman</span>
@@ -283,13 +332,32 @@ export const AdminAnnouncementsView: React.FC = () => {
               </div>
 
               <div className="flex items-center gap-2 flex-shrink-0">
+                {ann.published && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      handleOpenShare({
+                        id: ann.id,
+                        title: ann.title,
+                        content: ann.content,
+                        category: `Pengumuman ${ann.priority}`,
+                        date: ann.date,
+                        type: 'pengumuman',
+                      })
+                    }
+                    className="p-2 rounded-xl text-emerald-700 hover:text-emerald-950 hover:bg-emerald-50 transition-colors"
+                    title="Bagikan Pengumuman (WhatsApp / Salin Link)"
+                  >
+                    <Share2 className="w-4 h-4 text-emerald-700" />
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => handleTogglePublish(ann)}
                   className={`p-2 rounded-xl text-xs ${
                     ann.published ? 'text-emerald-700 hover:bg-emerald-50' : 'text-slate-400 hover:bg-slate-100'
                   }`}
-                  title={ann.published ? 'Published' : 'Draft'}
+                  title={ann.published ? 'Dipublikasikan' : 'Draft'}
                 >
                   {ann.published ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
                 </button>
@@ -297,6 +365,7 @@ export const AdminAnnouncementsView: React.FC = () => {
                   type="button"
                   onClick={() => handleStartEdit(ann)}
                   className="p-2 rounded-xl text-slate-600 hover:text-emerald-800 hover:bg-slate-100"
+                  title="Edit Pengumuman"
                 >
                   <Edit2 className="w-4 h-4" />
                 </button>
@@ -313,6 +382,13 @@ export const AdminAnnouncementsView: React.FC = () => {
           ))
         )}
       </div>
+
+      {/* SHARE MODAL */}
+      <ShareModal
+        isOpen={isShareModalOpen}
+        item={shareTarget}
+        onClose={() => setIsShareModalOpen(false)}
+      />
     </div>
   );
 };
