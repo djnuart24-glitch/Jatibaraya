@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useJatibarayaData } from '../../context/DataContext';
-import { AuditLogItem } from '../../types';
+import { AuditLogItem, VisitorAnalyticsData } from '../../types';
 import { subscribeAuditLogs } from '../../services/auditService';
+import { subscribeVisitorAnalytics } from '../../services/visitorService';
 import {
   Layers,
   Newspaper,
@@ -18,6 +19,10 @@ import {
   ShieldAlert,
   Clock,
   ArrowRight,
+  Activity,
+  Users,
+  Eye,
+  Globe,
 } from 'lucide-react';
 
 interface OverviewProps {
@@ -34,13 +39,28 @@ export const AdminDashboardOverview: React.FC<OverviewProps> = ({
 
   const [notification, setNotification] = useState('');
   const [recentLogs, setRecentLogs] = useState<AuditLogItem[]>([]);
+  const [visitorStats, setVisitorStats] = useState<VisitorAnalyticsData | null>(null);
 
   useEffect(() => {
-    const unsub = subscribeAuditLogs((logs) => {
+    const unsubAudit = subscribeAuditLogs((logs) => {
       setRecentLogs(logs.slice(0, 4));
     });
-    return () => unsub();
+    const unsubVisitor = subscribeVisitorAnalytics((stats) => {
+      setVisitorStats(stats);
+    });
+    return () => {
+      unsubAudit();
+      unsubVisitor();
+    };
   }, []);
+
+  const activeOnlineCount = React.useMemo(() => {
+    if (!visitorStats?.activeSessions) return 0;
+    const threeAndHalfMinutesAgo = Date.now() - 3.5 * 60 * 1000;
+    return Object.values(visitorStats.activeSessions).filter(
+      (s) => s.lastActive && s.lastActive > threeAndHalfMinutesAgo
+    ).length;
+  }, [visitorStats]);
 
   const handleExport = () => {
     const jsonStr = exportDatabaseJSON();
@@ -122,6 +142,46 @@ export const AdminDashboardOverview: React.FC<OverviewProps> = ({
               <span>1-Klik Backup JSON</span>
             </button>
           </div>
+        </div>
+      </div>
+
+      {/* Live Visitor Monitoring Highlight Widget */}
+      <div className="bg-white rounded-3xl p-6 border border-emerald-200/90 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-800 flex items-center justify-center flex-shrink-0 relative">
+            <Activity className="w-6 h-6" />
+            <span className="absolute -top-1 -right-1 flex h-3.5 w-3.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-emerald-500"></span>
+            </span>
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] font-mono uppercase tracking-wider text-emerald-800 font-bold">
+                Live Traffic Monitoring
+              </span>
+              <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-900 text-[10px] font-bold">
+                ● Real-Time
+              </span>
+            </div>
+            <h3 className="text-base sm:text-lg font-serif font-bold text-slate-900 mt-0.5">
+              {activeOnlineCount} Pengunjung Sedang Online
+            </h3>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Hari ini: <strong className="text-slate-800">{visitorStats?.todayVisitors ?? 0} pengunjung</strong> ({visitorStats?.todayPageviews ?? 0} tayangan) • Total: {(visitorStats?.totalVisitors ?? 0).toLocaleString('id-ID')} orang
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => onSelectSection('pengunjung')}
+            className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-emerald-800 hover:bg-emerald-700 text-white text-xs font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer shadow-xs"
+          >
+            <Activity className="w-4 h-4 text-amber-400" />
+            <span>Buka Pantau Pengunjung Lengkap</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </button>
         </div>
       </div>
 

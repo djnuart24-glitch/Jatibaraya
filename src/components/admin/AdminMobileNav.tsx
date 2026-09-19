@@ -51,7 +51,7 @@ export const AdminMobileNav: React.FC<AdminMobileNavProps> = ({
         className="flex flex-col items-center justify-center p-1.5 rounded-xl text-slate-400 hover:text-white transition-all cursor-pointer"
       >
         <Menu className="w-5 h-5 mb-0.5 text-emerald-400" />
-        <span className="text-[10px] tracking-tight">Semua (14)</span>
+        <span className="text-[10px] tracking-tight">Semua (15)</span>
       </button>
     </div>
   );

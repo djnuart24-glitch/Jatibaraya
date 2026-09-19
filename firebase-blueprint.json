@@ -38,6 +38,25 @@
         "logs": { "type": "array" },
         "last_updated": { "type": "string" }
       }
+    },
+    "visitorAnalytics": {
+      "title": "VisitorAnalytics",
+      "description": "Real-time visitor tracking, online sessions, and traffic analytics",
+      "type": "object",
+      "properties": {
+        "totalVisitors": { "type": "number" },
+        "totalPageviews": { "type": "number" },
+        "todayVisitors": { "type": "number" },
+        "todayPageviews": { "type": "number" },
+        "currentDateKey": { "type": "string" },
+        "dailyStats": { "type": "object" },
+        "pageBreakdown": { "type": "object" },
+        "deviceBreakdown": { "type": "object" },
+        "browserBreakdown": { "type": "object" },
+        "activeSessions": { "type": "object" },
+        "recentVisits": { "type": "array" },
+        "lastUpdated": { "type": "string" }
+      }
     }
   },
   "firestore": {
@@ -52,6 +71,10 @@
     "/content/audit_logs": {
       "schema": "auditLog",
       "description": "Stores administrative audit trail records"
+    },
+    "/content/analytics": {
+      "schema": "visitorAnalytics",
+      "description": "Stores real-time visitor tracking and web traffic analytics"
     }
   }
 }

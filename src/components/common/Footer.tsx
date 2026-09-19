@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useJatibarayaData } from '../../context/DataContext';
 import { JatibarayaLogo } from './JatibarayaLogo';
-import { MapPin, Mail, Phone, ExternalLink, Shield } from 'lucide-react';
+import { MapPin, Mail, Phone, ExternalLink, Shield, Activity } from 'lucide-react';
+import { subscribeVisitorAnalytics } from '../../services/visitorService';
 
 interface FooterProps {
   onSelectTab: (tab: string) => void;
@@ -12,6 +13,23 @@ export const Footer: React.FC<FooterProps> = ({ onSelectTab, onOpenAdmin }) => {
   const { data } = useJatibarayaData();
   const { settings, contact, socials } = data;
   const currentYear = new Date().getFullYear();
+
+  const [visitorStats, setVisitorStats] = useState<{ total: number; today: number; online: number } | null>(null);
+
+  useEffect(() => {
+    const unsub = subscribeVisitorAnalytics((stats) => {
+      const threeMinutesAgo = Date.now() - 3.5 * 60 * 1000;
+      const online = Object.values(stats.activeSessions || {}).filter(
+        (s) => s.lastActive && s.lastActive > threeMinutesAgo
+      ).length;
+      setVisitorStats({
+        total: stats.totalVisitors || 0,
+        today: stats.todayVisitors || 0,
+        online: Math.max(1, online),
+      });
+    });
+    return () => unsub();
+  }, []);
 
   return (
     <footer className="bg-slate-950 text-slate-300 pt-16 pb-12 border-t border-slate-800 relative">
@@ -182,6 +200,25 @@ export const Footer: React.FC<FooterProps> = ({ onSelectTab, onOpenAdmin }) => {
             </div>
           </div>
         </div>
+
+        {/* Visitor Stats Live Counter Badge */}
+        {visitorStats && (
+          <div className="pt-6 pb-2 flex flex-wrap items-center justify-center gap-2.5 sm:gap-4 text-[11px] font-mono text-slate-400 border-t border-slate-900/90">
+            <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-900/90 border border-slate-800 shadow-xs">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span className="text-emerald-300 font-bold">{visitorStats.online}</span>
+              <span>Online Sekarang</span>
+            </span>
+            <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-900/90 border border-slate-800 shadow-xs">
+              <span className="text-slate-500">Hari Ini:</span>
+              <strong className="text-amber-400">{visitorStats.today}</strong>
+            </span>
+            <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-900/90 border border-slate-800 shadow-xs">
+              <span className="text-slate-500">Total Kunjungan:</span>
+              <strong className="text-white">{visitorStats.total.toLocaleString('id-ID')}</strong>
+            </span>
+          </div>
+        )}
 
         {/* Bottom Bar: Copyright & Admin Shortcut */}
         <div className="pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500">

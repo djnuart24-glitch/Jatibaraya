@@ -12,11 +12,15 @@ import { DocumentationView } from './views/public/DocumentationView';
 import { ContactView } from './views/public/ContactView';
 import { AdminLoginView } from './views/admin/AdminLoginView';
 import { AdminLayout } from './views/admin/AdminLayout';
+import { useVisitorTracker } from './hooks/useVisitorTracker';
 
 function MainApplication() {
   const { isAuthenticated } = useAuth();
   const [viewMode, setViewMode] = useState<'public' | 'admin'>('public');
   const [activePublicTab, setActivePublicTab] = useState<string>('beranda');
+
+  // Automatically monitor and record visitor pageviews and active heartbeat
+  useVisitorTracker(activePublicTab, viewMode);
 
   // Listen to hash changes for deep linking (e.g. #admin, #program)
   useEffect(() => {

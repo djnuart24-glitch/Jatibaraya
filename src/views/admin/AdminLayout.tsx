@@ -17,6 +17,7 @@ import { AdminContactView } from './AdminContactView';
 import { AdminSocialView } from './AdminSocialView';
 import { AdminSettingsView } from './AdminSettingsView';
 import { AdminAuditView } from './AdminAuditView';
+import { AdminVisitorsView } from './AdminVisitorsView';
 import { Globe, Menu, ShieldCheck, Cloud, RefreshCw } from 'lucide-react';
 
 interface AdminLayoutProps {
@@ -76,6 +77,8 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ onViewPublic }) => {
         return <AdminSettingsView />;
       case 'audit':
         return <AdminAuditView />;
+      case 'pengunjung':
+        return <AdminVisitorsView />;
       default:
         return (
           <AdminDashboardOverview

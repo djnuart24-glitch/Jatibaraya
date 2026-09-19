@@ -12,6 +12,7 @@ export interface SiteSettings {
   footerText: string;
   ctaText: string;
   ctaSubtext: string;
+  showVisitorCounter?: boolean;
   updated_at: string;
 }
 
@@ -186,5 +187,58 @@ export interface JatibarayaDatabase {
   stats: OrganizationStats;
   contact: ContactInfo;
   socials: SocialMediaItem[];
+}
+
+export interface VisitorSession {
+  sessionId: string;
+  visitorId: string;
+  firstSeen: number;
+  lastActive: number;
+  currentPath: string;
+  pageTitle: string;
+  device: 'Mobile' | 'Desktop' | 'Tablet';
+  browser: string;
+  referrer?: string;
+}
+
+export interface VisitLogEntry {
+  id: string;
+  sessionId: string;
+  path: string;
+  pageTitle: string;
+  device: 'Mobile' | 'Desktop' | 'Tablet';
+  browser: string;
+  timestamp: string;
+}
+
+export interface DailyVisitorStat {
+  date: string; // YYYY-MM-DD
+  visitors: number;
+  pageviews: number;
+}
+
+export interface VisitorAnalyticsData {
+  totalVisitors: number;
+  totalPageviews: number;
+  todayVisitors: number;
+  todayPageviews: number;
+  currentDateKey: string;
+  dailyStats: Record<string, DailyVisitorStat>;
+  pageBreakdown: Record<string, number>;
+  deviceBreakdown: {
+    mobile: number;
+    desktop: number;
+    tablet: number;
+  };
+  browserBreakdown: {
+    chrome: number;
+    safari: number;
+    firefox: number;
+    edge: number;
+    other: number;
+  };
+  activeSessions: Record<string, VisitorSession>;
+  recentVisits: VisitLogEntry[];
+  lastUpdated: string;
 }
 
