@@ -146,6 +146,16 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
                   ...initialJatibarayaData.settings,
                   ...prev.settings,
                   ...remote.settings,
+                  logoUrl: (remote.settings?.logoUrl && remote.settings.logoUrl.trim() !== '')
+                    ? remote.settings.logoUrl
+                    : (prev.settings?.logoUrl && prev.settings.logoUrl.trim() !== '')
+                      ? prev.settings.logoUrl
+                      : initialJatibarayaData.settings.logoUrl,
+                  faviconUrl: (remote.settings?.faviconUrl && remote.settings.faviconUrl.trim() !== '')
+                    ? remote.settings.faviconUrl
+                    : (prev.settings?.faviconUrl && prev.settings.faviconUrl.trim() !== '')
+                      ? prev.settings.faviconUrl
+                      : initialJatibarayaData.settings.faviconUrl,
                 },
                 about: {
                   ...initialJatibarayaData.about,

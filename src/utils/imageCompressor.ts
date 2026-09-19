@@ -38,7 +38,14 @@ export async function compressImageFile(file: File, maxDimension = 1200, quality
         ctx.imageSmoothingQuality = 'high';
         ctx.drawImage(img, 0, 0, width, height);
 
-        // Export as JPEG with controlled quality
+        // If it's a PNG, preserve PNG format to keep alpha transparency intact for logos
+        if (file.type === 'image/png') {
+          const pngDataUrl = canvas.toDataURL('image/png');
+          resolve(pngDataUrl);
+          return;
+        }
+
+        // Otherwise export as JPEG with controlled quality
         const compressedDataUrl = canvas.toDataURL('image/jpeg', quality);
         resolve(compressedDataUrl);
       };

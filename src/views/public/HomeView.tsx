@@ -106,24 +106,21 @@ export const HomeView: React.FC<HomeViewProps> = ({
             <div className="lg:col-span-4 flex justify-center">
               <div className="relative p-6 sm:p-8 rounded-3xl bg-slate-900/80 border border-amber-400/30 backdrop-blur-md shadow-2xl flex flex-col items-center text-center space-y-4 max-w-xs">
                 <div className="p-3 rounded-2xl bg-gradient-to-b from-amber-400/15 via-sky-500/10 to-transparent border border-amber-400/40 flex items-center justify-center min-w-[100px] min-h-[100px]">
-                  {hasCustomLogo ? (
-                    <img
-                      src={settings.logoUrl}
-                      alt={settings.name}
-                      className="w-24 h-24 sm:w-28 sm:h-28 object-contain rounded-2xl drop-shadow-md"
-                    />
-                  ) : (
-                    <JatibarayaOfficialEmblem size="xl" />
-                  )}
+                  <img
+                    src={settings.logoUrl || '/assets/jatibaraya-logo.png'}
+                    alt={settings.name}
+                    className="w-24 h-24 sm:w-28 sm:h-28 object-contain rounded-2xl drop-shadow-md"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = '/assets/jatibaraya-logo.svg';
+                    }}
+                  />
                 </div>
                 <div>
                   <h3 className="text-lg font-serif font-bold text-white tracking-wide">
-                    {hasCustomLogo ? 'Foto Profil & Logo' : 'Lambang Resmi'}
+                    Lambang Resmi
                   </h3>
                   <p className="text-xs text-emerald-300 mt-1">
-                    {hasCustomLogo
-                      ? settings.fullName
-                      : 'Globe Biru • Kujang Pasundan • 3 Kitab • 9 Bintang • Pita Hijau'}
+                    {settings.fullName || 'Globe Biru • Kujang Pasundan • 3 Kitab • 9 Bintang • Pita Hijau'}
                   </p>
                 </div>
                 <button

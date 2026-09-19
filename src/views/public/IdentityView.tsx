@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useJatibarayaData } from '../../context/DataContext';
-import { JatibarayaLogo, JatibarayaOfficialEmblem } from '../../components/common/JatibarayaLogo';
+import { JatibarayaLogo } from '../../components/common/JatibarayaLogo';
+import { compressImageFile } from '../../utils/imageCompressor';
 import {
   Sparkles,
   Globe,
@@ -14,7 +15,9 @@ import {
   ShieldCheck,
   FileCheck,
   Layers,
-  Feather
+  Feather,
+  Upload,
+  Loader2
 } from 'lucide-react';
 
 interface IdentityViewProps {
@@ -22,24 +25,33 @@ interface IdentityViewProps {
 }
 
 export const IdentityView: React.FC<IdentityViewProps> = ({ onSelectTab }) => {
-  const { data } = useJatibarayaData();
+  const { data, updateSettings } = useJatibarayaData();
   const { settings, symbols } = data;
 
-  const hasCustomLogo =
-    Boolean(settings.logoUrl) &&
-    !settings.logoUrl.endsWith('jatibaraya-logo.svg') &&
-    !settings.logoUrl.includes('assets/jatibaraya-logo.svg');
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadNotice, setUploadNotice] = useState<string | null>(null);
 
-  const [activeEmblemTab, setActiveEmblemTab] = useState<'custom' | 'vector' | 'raster'>(
-    hasCustomLogo ? 'custom' : 'vector'
-  );
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
 
-  // Sync tab if logo changes
-  React.useEffect(() => {
-    if (hasCustomLogo) {
-      setActiveEmblemTab('custom');
+    try {
+      setIsUploading(true);
+      const compressedDataUrl = await compressImageFile(file, 1200, 0.85);
+      updateSettings({ logoUrl: compressedDataUrl });
+      setUploadNotice('Logo asli berhasil diperbarui!');
+      setTimeout(() => setUploadNotice(null), 4000);
+    } catch (err) {
+      console.error('Error uploading logo:', err);
+      alert('Gagal memproses gambar logo. Silakan coba file lain.');
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
     }
-  }, [settings.logoUrl, hasCustomLogo]);
+  };
 
   // Metadata mapping for icons and colors corresponding to the 6 official elements
   const metaMap: Record<
@@ -221,43 +233,22 @@ export const IdentityView: React.FC<IdentityViewProps> = ({ onSelectTab }) => {
         <div className="relative grid grid-cols-1 lg:grid-cols-12 gap-10 items-center">
           {/* Visual Logo Centerpiece */}
           <div className="lg:col-span-5 flex flex-col items-center text-center space-y-4">
-            <div className="p-6 sm:p-8 rounded-3xl bg-slate-900/95 border border-amber-400/40 shadow-2xl backdrop-blur-md flex items-center justify-center relative group">
-              {activeEmblemTab === 'vector' ? (
-                <JatibarayaOfficialEmblem size="2xl" />
-              ) : (
-                <img
-                  src="/assets/jatibaraya-logo.png"
-                  alt="Lambang Resmi Jatibaraya"
-                  className="w-44 h-44 object-contain rounded-2xl drop-shadow-md"
-                  onError={() => setActiveEmblemTab('vector')}
-                />
-              )}
+            <div className="p-6 sm:p-8 rounded-3xl bg-slate-900/95 border border-amber-400/40 shadow-2xl backdrop-blur-md flex flex-col items-center justify-center relative group min-h-[240px] w-full max-w-sm">
+              <img
+                src={settings.logoUrl || "/assets/jatibaraya-logo.png"}
+                alt="Lambang Resmi Jatibaraya"
+                className="w-48 h-48 sm:w-52 sm:h-52 object-contain rounded-2xl drop-shadow-xl transition-transform duration-300 group-hover:scale-105"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = "/assets/jatibaraya-logo.svg";
+                }}
+              />
 
-              {/* View Switcher Pill */}
-              <div className="absolute -bottom-3.5 left-1/2 -translate-x-1/2 flex items-center p-0.5 rounded-full bg-slate-800/90 border border-slate-700/80 shadow-md">
-                <button
-                  type="button"
-                  onClick={() => setActiveEmblemTab('vector')}
-                  className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold transition-colors cursor-pointer ${
-                    activeEmblemTab === 'vector'
-                      ? 'bg-amber-500 text-slate-950 font-bold'
-                      : 'text-slate-400 hover:text-white'
-                  }`}
-                >
-                  Vektor
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setActiveEmblemTab('raster')}
-                  className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold transition-colors cursor-pointer ${
-                    activeEmblemTab === 'raster'
-                      ? 'bg-amber-500 text-slate-950 font-bold'
-                      : 'text-slate-400 hover:text-white'
-                  }`}
-                >
-                  Gambar HD
-                </button>
-              </div>
+              {uploadNotice && (
+                <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-700 text-white text-[11px] font-semibold shadow-lg border border-emerald-500 whitespace-nowrap animate-in fade-in">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>{uploadNotice}</span>
+                </div>
+              )}
             </div>
 
             <div className="pt-2">
@@ -272,26 +263,46 @@ export const IdentityView: React.FC<IdentityViewProps> = ({ onSelectTab }) => {
               </p>
             </div>
 
-            {/* Download Buttons Group */}
+            {/* Hidden File Input for Direct Upload */}
+            <input
+              type="file"
+              ref={fileInputRef}
+              accept="image/*"
+              onChange={handleLogoUpload}
+              className="hidden"
+            />
+
+            {/* Action Buttons Group */}
             <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
               <a
-                href="/assets/jatibaraya-logo.svg"
-                download="jatibaraya-logo.svg"
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-900/80 hover:bg-emerald-800 text-emerald-200 hover:text-white border border-emerald-700/60 text-xs font-semibold transition-colors cursor-pointer"
-                title="Unduh format vektor SVG skalabel"
+                href={settings.logoUrl || "/assets/jatibaraya-logo.png"}
+                download="lambang-resmi-jatibaraya.png"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-900/80 hover:bg-emerald-800 text-emerald-200 hover:text-white border border-emerald-700/60 text-xs font-semibold transition-colors cursor-pointer shadow-xs"
+                title="Unduh file lambang resmi Jatibaraya"
               >
                 <Download className="w-3.5 h-3.5" />
-                <span>Unduh SVG</span>
+                <span>Unduh Lambang Resmi</span>
               </a>
-              <a
-                href="/assets/jatibaraya-logo.png"
-                download="jatibaraya-logo.png"
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 hover:text-amber-200 border border-amber-500/40 text-xs font-semibold transition-colors cursor-pointer"
-                title="Unduh format PNG resolusi tinggi"
+
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isUploading}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 hover:text-amber-200 border border-amber-500/40 text-xs font-semibold transition-colors cursor-pointer shadow-xs"
+                title="Ganti atau unggah file logo asli organisasi"
               >
-                <Download className="w-3.5 h-3.5" />
-                <span>Unduh PNG</span>
-              </a>
+                {isUploading ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Memproses...</span>
+                  </>
+                ) : (
+                  <>
+                    <Upload className="w-3.5 h-3.5" />
+                    <span>Unggah Foto Logo Asli</span>
+                  </>
+                )}
+              </button>
             </div>
           </div>
 

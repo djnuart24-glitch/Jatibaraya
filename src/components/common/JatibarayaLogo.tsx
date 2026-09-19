@@ -364,11 +364,6 @@ export const JatibarayaLogo: React.FC<LogoProps> = ({
   const { data } = useJatibarayaData();
   const { logoUrl, name, fullName } = data.settings;
 
-  const isCustomUploadedPhoto =
-    Boolean(logoUrl) &&
-    !logoUrl.endsWith('jatibaraya-logo.svg') &&
-    !logoUrl.includes('assets/jatibaraya-logo.svg');
-
   const containerSizes = {
     xs: 'w-7 h-7',
     sm: 'w-9 h-9',
@@ -378,13 +373,21 @@ export const JatibarayaLogo: React.FC<LogoProps> = ({
     '2xl': 'w-32 h-32',
   };
 
+  const displayLogoUrl = logoUrl || '/assets/jatibaraya-logo.png';
+
   return (
     <div className="flex items-center gap-3 select-none">
-      {isCustomUploadedPhoto ? (
+      {displayLogoUrl ? (
         <img
-          src={logoUrl}
+          src={displayLogoUrl}
           alt={name}
           className={`${containerSizes[size]} object-contain rounded-2xl shadow-xs`}
+          onError={(e) => {
+            const imgEl = e.target as HTMLImageElement;
+            if (!imgEl.src.endsWith('/assets/jatibaraya-logo.svg')) {
+              imgEl.src = '/assets/jatibaraya-logo.svg';
+            }
+          }}
         />
       ) : (
         <div className="flex items-center justify-center flex-shrink-0 transition-transform hover:scale-105 duration-200">

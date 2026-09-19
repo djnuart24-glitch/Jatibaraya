@@ -1,16 +1,24 @@
 import React, { useState } from 'react';
 import { useJatibarayaData } from '../../context/DataContext';
 import { SymbolElement } from '../../types';
-import { Save, CheckCircle2, Sparkles, Shield, AlertCircle } from 'lucide-react';
+import { Save, CheckCircle2, Sparkles, Shield, AlertCircle, Upload } from 'lucide-react';
 import { JatibarayaLogo } from '../../components/common/JatibarayaLogo';
+import { ImageUploader } from '../../components/admin/ImageUploader';
 
 export const AdminIdentityView: React.FC = () => {
-  const { data, updateSymbols } = useJatibarayaData();
-  const { symbols } = data;
+  const { data, updateSymbols, updateSettings } = useJatibarayaData();
+  const { symbols, settings } = data;
 
   const [localSymbols, setLocalSymbols] = useState<SymbolElement[]>(symbols);
   const [isSaved, setIsSaved] = useState(false);
   const [savedTime, setSavedTime] = useState<string | null>(null);
+  const [logoNotice, setLogoNotice] = useState<string | null>(null);
+
+  const handleLogoUpdate = (url: string) => {
+    updateSettings({ logoUrl: url });
+    setLogoNotice('Foto logo resmi berhasil disimpan ke database!');
+    setTimeout(() => setLogoNotice(null), 4000);
+  };
 
   React.useEffect(() => {
     setLocalSymbols(symbols);
@@ -82,21 +90,57 @@ export const AdminIdentityView: React.FC = () => {
         </div>
       )}
 
-      {/* Preview Lambang */}
-      <div className="bg-slate-950 text-white rounded-3xl p-6 border border-slate-800 flex flex-col sm:flex-row items-center gap-6">
-        <div className="p-4 bg-slate-900 rounded-2xl border border-slate-800 flex-shrink-0">
-          <JatibarayaLogo size="lg" light={true} />
+      {/* Inline Feedback Banner for Logo */}
+      {logoNotice && (
+        <div className="p-4 rounded-2xl bg-emerald-900 text-white shadow-lg border border-emerald-600 flex items-center justify-between animate-in fade-in slide-in-from-top-2">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-xl bg-amber-400 text-emerald-950 flex items-center justify-center font-bold flex-shrink-0">
+              <CheckCircle2 className="w-5 h-5" />
+            </div>
+            <div>
+              <p className="text-xs font-bold">{logoNotice}</p>
+              <p className="text-[11px] text-emerald-200">
+                Logo resmi langsung diperbarui di seluruh halaman website publik dan admin.
+              </p>
+            </div>
+          </div>
         </div>
-        <div className="space-y-1 text-center sm:text-left">
-          <span className="text-[10px] font-mono text-amber-400 uppercase tracking-widest">
-            Pratinjau Lambang Asli
-          </span>
-          <h3 className="text-base font-serif font-bold text-white">
-            Logo Resmi Jatibaraya Lirboyo
-          </h3>
-          <p className="text-xs text-slate-400 leading-relaxed max-w-xl">
-            Menghubungkan identitas santri Priangan (Kujang Emas) dengan tradisi keilmuan pesantren (Tiga Kitab), wawasan global (Globe Biru), serta keteladanan para wali (9 Bintang Merah).
-          </p>
+      )}
+
+      {/* Preview Lambang & Logo Uploader */}
+      <div className="bg-slate-950 text-white rounded-3xl p-6 border border-slate-800 space-y-5">
+        <div className="flex flex-col sm:flex-row items-center gap-6">
+          <div className="p-4 bg-slate-900 rounded-2xl border border-slate-800 flex-shrink-0 flex items-center justify-center min-w-[90px] min-h-[90px]">
+            {settings.logoUrl ? (
+              <img
+                src={settings.logoUrl}
+                alt="Logo Resmi"
+                className="w-16 h-16 object-contain rounded-xl"
+              />
+            ) : (
+              <JatibarayaLogo size="lg" light={true} />
+            )}
+          </div>
+          <div className="space-y-1 text-center sm:text-left flex-1">
+            <span className="text-[10px] font-mono text-amber-400 uppercase tracking-widest">
+              Pratinjau Lambang Asli
+            </span>
+            <h3 className="text-base font-serif font-bold text-white">
+              Logo Resmi Jatibaraya Lirboyo
+            </h3>
+            <p className="text-xs text-slate-400 leading-relaxed max-w-xl">
+              Menghubungkan identitas santri Priangan (Kujang Emas) dengan tradisi keilmuan pesantren (Tiga Kitab), wawasan global (Globe Biru), serta keteladanan para wali (9 Bintang Merah).
+            </p>
+          </div>
+        </div>
+
+        <div className="pt-4 border-t border-slate-800/80">
+          <ImageUploader
+            label="Unggah File Foto Logo Resmi Asli (Pilih IMG_9022.png atau file logo resmi Anda)"
+            categoryFolder="LOGO"
+            currentImageUrl={settings.logoUrl || ''}
+            onImageSelected={handleLogoUpdate}
+          />
         </div>
       </div>
 
