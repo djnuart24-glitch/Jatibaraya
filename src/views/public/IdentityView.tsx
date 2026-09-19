@@ -1,7 +1,6 @@
-import React, { useState, useRef } from 'react';
+import React from 'react';
 import { useJatibarayaData } from '../../context/DataContext';
 import { JatibarayaLogo } from '../../components/common/JatibarayaLogo';
-import { compressImageFile } from '../../utils/imageCompressor';
 import {
   Sparkles,
   Globe,
@@ -15,9 +14,7 @@ import {
   ShieldCheck,
   FileCheck,
   Layers,
-  Feather,
-  Upload,
-  Loader2
+  Feather
 } from 'lucide-react';
 
 interface IdentityViewProps {
@@ -25,33 +22,8 @@ interface IdentityViewProps {
 }
 
 export const IdentityView: React.FC<IdentityViewProps> = ({ onSelectTab }) => {
-  const { data, updateSettings } = useJatibarayaData();
+  const { data } = useJatibarayaData();
   const { settings, symbols } = data;
-
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [isUploading, setIsUploading] = useState(false);
-  const [uploadNotice, setUploadNotice] = useState<string | null>(null);
-
-  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    try {
-      setIsUploading(true);
-      const compressedDataUrl = await compressImageFile(file, 1200, 0.85);
-      updateSettings({ logoUrl: compressedDataUrl });
-      setUploadNotice('Logo asli berhasil diperbarui!');
-      setTimeout(() => setUploadNotice(null), 4000);
-    } catch (err) {
-      console.error('Error uploading logo:', err);
-      alert('Gagal memproses gambar logo. Silakan coba file lain.');
-    } finally {
-      setIsUploading(false);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
-    }
-  };
 
   // Metadata mapping for icons and colors corresponding to the 6 official elements
   const metaMap: Record<
@@ -242,13 +214,6 @@ export const IdentityView: React.FC<IdentityViewProps> = ({ onSelectTab }) => {
                   (e.target as HTMLImageElement).src = "/assets/jatibaraya-logo.svg";
                 }}
               />
-
-              {uploadNotice && (
-                <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-700 text-white text-[11px] font-semibold shadow-lg border border-emerald-500 whitespace-nowrap animate-in fade-in">
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                  <span>{uploadNotice}</span>
-                </div>
-              )}
             </div>
 
             <div className="pt-2">
@@ -263,46 +228,17 @@ export const IdentityView: React.FC<IdentityViewProps> = ({ onSelectTab }) => {
               </p>
             </div>
 
-            {/* Hidden File Input for Direct Upload */}
-            <input
-              type="file"
-              ref={fileInputRef}
-              accept="image/*"
-              onChange={handleLogoUpload}
-              className="hidden"
-            />
-
             {/* Action Buttons Group */}
-            <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
+            <div className="flex items-center justify-center gap-2 pt-1">
               <a
                 href={settings.logoUrl || "/assets/jatibaraya-logo.png"}
                 download="lambang-resmi-jatibaraya.png"
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-900/80 hover:bg-emerald-800 text-emerald-200 hover:text-white border border-emerald-700/60 text-xs font-semibold transition-colors cursor-pointer shadow-xs"
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-900/80 hover:bg-emerald-800 text-emerald-200 hover:text-white border border-emerald-700/60 text-xs font-semibold transition-colors cursor-pointer shadow-sm"
                 title="Unduh file lambang resmi Jatibaraya"
               >
                 <Download className="w-3.5 h-3.5" />
                 <span>Unduh Lambang Resmi</span>
               </a>
-
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={isUploading}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 hover:text-amber-200 border border-amber-500/40 text-xs font-semibold transition-colors cursor-pointer shadow-xs"
-                title="Ganti atau unggah file logo asli organisasi"
-              >
-                {isUploading ? (
-                  <>
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    <span>Memproses...</span>
-                  </>
-                ) : (
-                  <>
-                    <Upload className="w-3.5 h-3.5" />
-                    <span>Unggah Foto Logo Asli</span>
-                  </>
-                )}
-              </button>
             </div>
           </div>
 
