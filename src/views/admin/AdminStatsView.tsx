@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useJatibarayaData } from '../../context/DataContext';
-import { Save, CheckCircle2, AlertTriangle, BarChart3, HelpCircle } from 'lucide-react';
+import { Save, CheckCircle2, AlertTriangle, Loader2 } from 'lucide-react';
 
 export const AdminStatsView: React.FC = () => {
-  const { data, updateStats } = useJatibarayaData();
+  const { data, updateStats, saveToCloud } = useJatibarayaData();
   const { stats } = data;
 
   const [wargaCount, setWargaCount] = useState(stats.wargaCount);
@@ -12,10 +12,21 @@ export const AdminStatsView: React.FC = () => {
   const [kegiatanCount, setKegiatanCount] = useState(stats.kegiatanCount);
   const [referenceYear, setReferenceYear] = useState(stats.referenceYear);
   const [isSaved, setIsSaved] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [savedTime, setSavedTime] = useState<string | null>(null);
 
-  const handleSave = (e: React.FormEvent) => {
+  // Sync inputs when cloud data updates
+  useEffect(() => {
+    setWargaCount(stats.wargaCount || '—');
+    setAlumniCount(stats.alumniCount || '—');
+    setProgramCount(stats.programCount || '—');
+    setKegiatanCount(stats.kegiatanCount || '—');
+    setReferenceYear(stats.referenceYear || '2026');
+  }, [stats]);
+
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSaving(true);
     updateStats({
       wargaCount: wargaCount.trim() || '—',
       alumniCount: alumniCount.trim() || '—',
@@ -23,10 +34,17 @@ export const AdminStatsView: React.FC = () => {
       kegiatanCount: kegiatanCount.trim() || '—',
       referenceYear: referenceYear.trim() || '2026',
     });
-    const now = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-    setSavedTime(now);
-    setIsSaved(true);
-    setTimeout(() => setIsSaved(false), 5000);
+    try {
+      await saveToCloud();
+      const now = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      setSavedTime(now);
+      setIsSaved(true);
+      setTimeout(() => setIsSaved(false), 5000);
+    } catch (err) {
+      console.error('Error saving stats:', err);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -149,12 +167,31 @@ export const AdminStatsView: React.FC = () => {
           </span>
           <button
             type="submit"
+            disabled={isSaving}
             className={`w-full sm:w-auto px-6 py-2.5 rounded-xl text-xs font-bold shadow-xs flex items-center justify-center gap-2 transition-all cursor-pointer ${
-              isSaved ? 'bg-emerald-600 text-white' : 'bg-emerald-800 hover:bg-emerald-900 text-white'
+              isSaving
+                ? 'bg-slate-400 text-white cursor-not-allowed'
+                : isSaved
+                ? 'bg-emerald-600 text-white'
+                : 'bg-emerald-800 hover:bg-emerald-900 text-white'
             }`}
           >
-            <Save className="w-4 h-4 text-amber-400" />
-            <span>{isSaved ? '✓ Berhasil Disimpan!' : 'Simpan Data Statistik'}</span>
+            {isSaving ? (
+              <>
+                <Loader2 className="w-4 h-4 text-amber-400 animate-spin" />
+                <span>Menyimpan ke Cloud...</span>
+              </>
+            ) : isSaved ? (
+              <>
+                <CheckCircle2 className="w-4 h-4 text-white" />
+                <span>✓ Berhasil Disimpan & Sinkron!</span>
+              </>
+            ) : (
+              <>
+                <Save className="w-4 h-4 text-amber-400" />
+                <span>Simpan Data Statistik</span>
+              </>
+            )}
           </button>
         </div>
       </form>

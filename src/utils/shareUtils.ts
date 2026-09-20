@@ -6,14 +6,14 @@ export interface ShareableItem {
   category?: string;
   author?: string;
   date?: string;
-  type: 'berita' | 'artikel' | 'pengumuman' | 'program';
+  type: 'berita' | 'artikel' | 'pengumuman' | 'program' | 'bahtsul';
   imageUrl?: string;
 }
 
 /**
  * Generate shareable URL with hash routing deep-link
  */
-export function getShareUrl(item: { id: string; type: 'berita' | 'artikel' | 'pengumuman' | 'program' }): string {
+export function getShareUrl(item: { id: string; type: 'berita' | 'artikel' | 'pengumuman' | 'program' | 'bahtsul' }): string {
   if (typeof window === 'undefined') return '';
   const origin = window.location.origin;
   const pathname = window.location.pathname.replace(/\/+$/, '');
@@ -32,6 +32,7 @@ export function formatBroadcastText(item: ShareableItem, shareUrl?: string): str
   const typeHeaders: Record<string, string> = {
     berita: '📰 *BERITA RESMI JATIBARAYA*',
     artikel: '✍️ *ARTIKEL SANTRI PRIANGAN*',
+    bahtsul: '📜 *HASIL BAHTSUL MASAIL JATIBARAYA*',
     pengumuman: '📢 *PENGUMUMAN RESMI JATIBARAYA*',
     program: '📌 *AGENDA PROGRAM KERJA JATIBARAYA*',
   };

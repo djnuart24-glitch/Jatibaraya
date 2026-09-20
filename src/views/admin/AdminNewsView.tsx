@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 
 export const AdminNewsView: React.FC = () => {
-  const { data, addNews, updateNews, deleteNews } = useJatibarayaData();
+  const { data, addNews, updateNews, deleteNews, saveToCloud } = useJatibarayaData();
   const { news } = data;
 
   const [isEditing, setIsEditing] = useState(false);
@@ -80,7 +80,8 @@ export const AdminNewsView: React.FC = () => {
     let targetShare: ShareableItem;
     if (editingItem) {
       updateNews(editingItem.id, savedData);
-      showNotice(`Berita "${savedData.title}" berhasil diperbarui.`);
+      saveToCloud().catch(() => {});
+      showNotice(`Berita "${savedData.title}" berhasil diperbarui & disinkronkan secara realtime.`);
       targetShare = {
         id: editingItem.id,
         ...savedData,
@@ -88,7 +89,8 @@ export const AdminNewsView: React.FC = () => {
       };
     } else {
       const created = addNews(savedData);
-      showNotice(`Berita "${savedData.title}" berhasil diterbitkan.`);
+      saveToCloud().catch(() => {});
+      showNotice(`Berita "${savedData.title}" berhasil diterbitkan & langsung tampil di website!`);
       targetShare = {
         id: created.id,
         ...savedData,

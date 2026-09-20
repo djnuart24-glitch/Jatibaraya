@@ -7,6 +7,7 @@ import {
   Layers,
   Newspaper,
   BookOpen,
+  Scroll,
   Image,
   Bell,
   Download,
@@ -35,7 +36,9 @@ export const AdminDashboardOverview: React.FC<OverviewProps> = ({
   onViewPublic,
 }) => {
   const { data, exportDatabaseJSON, importDatabaseJSON, resetToInitial } = useJatibarayaData();
-  const { programs, news, articles, announcements, media, settings } = data;
+  const { programs, news, articles, bahtsulMasail, announcements, media, settings } = data;
+  const bahtsulCount = (bahtsulMasail || []).length;
+  const bahtsulPublishedCount = (bahtsulMasail || []).filter((b) => b.published).length;
 
   const [notification, setNotification] = useState('');
   const [recentLogs, setRecentLogs] = useState<AuditLogItem[]>([]);
@@ -186,7 +189,7 @@ export const AdminDashboardOverview: React.FC<OverviewProps> = ({
       </div>
 
       {/* Quick Summary Cards (Mobile Friendly) */}
-      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
         <div
           onClick={() => onSelectSection('program')}
           className="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs hover:border-emerald-300 transition-all cursor-pointer space-y-2"
@@ -236,8 +239,24 @@ export const AdminDashboardOverview: React.FC<OverviewProps> = ({
         </div>
 
         <div
-          onClick={() => onSelectSection('dokumentasi')}
+          onClick={() => onSelectSection('bahtsul')}
           className="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs hover:border-emerald-300 transition-all cursor-pointer space-y-2"
+        >
+          <div className="flex items-center justify-between text-slate-500">
+            <span className="text-xs font-semibold">Bahtsul Masail</span>
+            <Scroll className="w-4 h-4 text-emerald-700" />
+          </div>
+          <span className="text-2xl font-extrabold text-slate-900 font-mono block">
+            {bahtsulCount}
+          </span>
+          <span className="text-[11px] text-emerald-700 font-medium">
+            {bahtsulPublishedCount} Terpublikasi
+          </span>
+        </div>
+
+        <div
+          onClick={() => onSelectSection('dokumentasi')}
+          className="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs hover:border-emerald-300 transition-all cursor-pointer space-y-2 col-span-2 sm:col-span-1"
         >
           <div className="flex items-center justify-between text-slate-500">
             <span className="text-xs font-semibold">Pustaka Media</span>
@@ -256,21 +275,46 @@ export const AdminDashboardOverview: React.FC<OverviewProps> = ({
           Aksi Cepat Pengurus
         </h2>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           <button
-            onClick={() => onSelectSection('program')}
+            onClick={() => onSelectSection('bahtsul')}
+            className="p-4 rounded-2xl bg-emerald-50/80 hover:bg-emerald-100/70 border border-emerald-300 transition-all text-left space-y-1 cursor-pointer"
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-emerald-950 block">Input Hasil Bahtsul Masail</span>
+              <Scroll className="w-4 h-4 text-emerald-700" />
+            </div>
+            <span className="text-[11px] text-emerald-900 block">Ketetapan hukum fikih, as-su&apos;al, al-jawab, dan kutipan ta&apos;bir turats.</span>
+          </button>
+
+          <button
+            onClick={() => onSelectSection('artikel')}
             className="p-4 rounded-2xl bg-slate-50 hover:bg-emerald-50 border border-slate-200 hover:border-emerald-200 transition-all text-left space-y-1 cursor-pointer"
           >
-            <span className="text-xs font-bold text-emerald-950 block">Kelola 12 Program Kerja</span>
-            <span className="text-[11px] text-slate-500 block">Edit jadwal, kategori, status publish, atau tambah agenda baru.</span>
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-emerald-950 block">Tulis Artikel Santri</span>
+              <BookOpen className="w-3.5 h-3.5 text-emerald-700" />
+            </div>
+            <span className="text-[11px] text-slate-500 block">Karya tulis, refleksi spiritual, kajian ilmiah santri Priangan.</span>
           </button>
 
           <button
             onClick={() => onSelectSection('berita')}
             className="p-4 rounded-2xl bg-slate-50 hover:bg-emerald-50 border border-slate-200 hover:border-emerald-200 transition-all text-left space-y-1 cursor-pointer"
           >
-            <span className="text-xs font-bold text-emerald-950 block">Tulis Berita Baru</span>
-            <span className="text-[11px] text-slate-500 block">Buat rilis kabar kegiatan santri dan upload dokumentasi.</span>
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-emerald-950 block">Tulis Berita Kegiatan</span>
+              <Newspaper className="w-3.5 h-3.5 text-amber-600" />
+            </div>
+            <span className="text-[11px] text-slate-500 block">Rilis kabar agenda, safari, atau pengumuman resmi organisasi.</span>
+          </button>
+
+          <button
+            onClick={() => onSelectSection('program')}
+            className="p-4 rounded-2xl bg-slate-50 hover:bg-emerald-50 border border-slate-200 hover:border-emerald-200 transition-all text-left space-y-1 cursor-pointer"
+          >
+            <span className="text-xs font-bold text-emerald-950 block">Kelola 12 Program Kerja</span>
+            <span className="text-[11px] text-slate-500 block">Edit jadwal, status publish, atau tambah agenda baru.</span>
           </button>
 
           <button
@@ -278,7 +322,15 @@ export const AdminDashboardOverview: React.FC<OverviewProps> = ({
             className="p-4 rounded-2xl bg-slate-50 hover:bg-emerald-50 border border-slate-200 hover:border-emerald-200 transition-all text-left space-y-1 cursor-pointer"
           >
             <span className="text-xs font-bold text-emerald-950 block">Perbarui Data Statistik</span>
-            <span className="text-[11px] text-slate-500 block">Ubah angka santri, alumni, program, atau pertahankan tanda strip (—).</span>
+            <span className="text-[11px] text-slate-500 block">Ubah angka santri, alumni, atau pertahankan tanda strip (—).</span>
+          </button>
+
+          <button
+            onClick={() => onSelectSection('dokumentasi')}
+            className="p-4 rounded-2xl bg-slate-50 hover:bg-emerald-50 border border-slate-200 hover:border-emerald-200 transition-all text-left space-y-1 cursor-pointer"
+          >
+            <span className="text-xs font-bold text-emerald-950 block">Upload Dokumentasi Foto</span>
+            <span className="text-[11px] text-slate-500 block">Tambahkan foto kegiatan galeri santri dan safari dakwah.</span>
           </button>
         </div>
       </div>

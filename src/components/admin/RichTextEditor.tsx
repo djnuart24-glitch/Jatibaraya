@@ -68,7 +68,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
       category,
       author: author.trim() || 'Pengurus Jatibaraya',
       date,
-      imageUrl: imageUrl || undefined,
+      imageUrl: imageUrl?.trim() ? imageUrl.trim() : '',
       published,
     });
   };

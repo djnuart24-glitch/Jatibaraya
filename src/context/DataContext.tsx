@@ -7,6 +7,7 @@ import {
   ProgramItem,
   NewsItem,
   ArticleItem,
+  BahtsulMasailItem,
   AnnouncementItem,
   MediaItem,
   OrganizationStats,
@@ -51,6 +52,11 @@ interface DataContextType {
   addArticle: (article: Omit<ArticleItem, 'id' | 'created_at' | 'updated_at' | 'slug'>) => ArticleItem;
   updateArticle: (id: string, article: Partial<ArticleItem>) => void;
   deleteArticle: (id: string) => void;
+
+  // Bahtsul Masail CRUD
+  addBahtsul: (item: Omit<BahtsulMasailItem, 'id' | 'created_at' | 'updated_at' | 'slug'>) => BahtsulMasailItem;
+  updateBahtsul: (id: string, item: Partial<BahtsulMasailItem>) => void;
+  deleteBahtsul: (id: string) => void;
 
   // Announcement CRUD
   addAnnouncement: (ann: Omit<AnnouncementItem, 'id' | 'created_at' | 'updated_at'>) => AnnouncementItem;
@@ -103,6 +109,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
           ...parsed,
           settings: mergedSettings,
           symbols: mergedSymbols,
+          bahtsulMasail: Array.isArray(parsed.bahtsulMasail)
+            ? parsed.bahtsulMasail
+            : initialJatibarayaData.bahtsulMasail,
           stats: { ...initialJatibarayaData.stats, ...parsed.stats },
           contact: { ...initialJatibarayaData.contact, ...parsed.contact },
           about: { ...initialJatibarayaData.about, ...parsed.about },
@@ -135,57 +144,60 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (snapshot.exists()) {
             const remote = snapshot.data() as Partial<JatibarayaDatabase>;
             
-            setData((prev) => {
-              const hasLocalPending = pendingChangesCounterRef.current > 0;
+            // If local uncommitted changes are in flight, do not overwrite with stale snapshot
+            if (pendingChangesCounterRef.current > 0) {
+              return;
+            }
 
+            setData((prev) => {
               const merged: JatibarayaDatabase = {
                 ...initialJatibarayaData,
                 ...remote,
                 settings: remote.settings ? {
                   ...initialJatibarayaData.settings,
                   ...remote.settings,
-                  ...(hasLocalPending ? prev.settings : {}),
-                  logoUrl: remote.settings.logoUrl || (hasLocalPending ? prev.settings?.logoUrl : '') || initialJatibarayaData.settings.logoUrl,
-                  faviconUrl: remote.settings.faviconUrl || (hasLocalPending ? prev.settings?.faviconUrl : '') || initialJatibarayaData.settings.faviconUrl,
+                  logoUrl: remote.settings.logoUrl || prev.settings?.logoUrl || initialJatibarayaData.settings.logoUrl,
+                  faviconUrl: remote.settings.faviconUrl || prev.settings?.faviconUrl || initialJatibarayaData.settings.faviconUrl,
                 } : prev.settings,
                 about: remote.about ? {
                   ...initialJatibarayaData.about,
                   ...remote.about,
-                  ...(hasLocalPending ? prev.about : {}),
                 } : prev.about,
                 symbols: Array.isArray(remote.symbols) && remote.symbols.length > 0
-                  ? (hasLocalPending ? prev.symbols : remote.symbols)
+                  ? remote.symbols
                   : prev.symbols,
                 programs: Array.isArray(remote.programs)
-                  ? (hasLocalPending ? prev.programs : remote.programs)
+                  ? remote.programs
                   : prev.programs,
                 news: Array.isArray(remote.news)
-                  ? (hasLocalPending ? prev.news : remote.news)
+                  ? remote.news
                   : prev.news,
                 articles: Array.isArray(remote.articles)
-                  ? (hasLocalPending ? prev.articles : remote.articles)
+                  ? remote.articles
                   : prev.articles,
+                bahtsulMasail: Array.isArray(remote.bahtsulMasail)
+                  ? remote.bahtsulMasail
+                  : (prev.bahtsulMasail || initialJatibarayaData.bahtsulMasail || []),
                 announcements: Array.isArray(remote.announcements)
-                  ? (hasLocalPending ? prev.announcements : remote.announcements)
+                  ? remote.announcements
                   : prev.announcements,
                 media: Array.isArray(remote.media)
-                  ? (hasLocalPending ? prev.media : remote.media)
+                  ? remote.media
                   : prev.media,
                 socials: Array.isArray(remote.socials)
-                  ? (hasLocalPending ? prev.socials : remote.socials)
+                  ? remote.socials
                   : prev.socials,
                 stats: remote.stats ? {
                   ...initialJatibarayaData.stats,
                   ...remote.stats,
-                  ...(hasLocalPending ? prev.stats : {}),
                 } : prev.stats,
                 contact: remote.contact ? {
                   ...initialJatibarayaData.contact,
                   ...remote.contact,
-                  ...(hasLocalPending ? prev.contact : {}),
                 } : prev.contact,
               };
 
+              latestDataRef.current = merged;
               try {
                 localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
               } catch (e) {
@@ -197,7 +209,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setLastCloudSync(new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
           } else {
             // First time: seed initial database to Firestore
-            setDoc(docRef, initialJatibarayaData, { merge: true })
+            setDoc(docRef, JSON.parse(JSON.stringify(initialJatibarayaData)), { merge: true })
               .then(() => {
                 setCloudStatus('connected');
                 setLastCloudSync(new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
@@ -235,15 +247,19 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Synchronize directly to Firestore
   const syncToFirestore = async (dataToSave: JatibarayaDatabase) => {
     setIsCloudSyncing(true);
+    setCloudStatus('syncing');
     try {
       const docRef = doc(db, FIRESTORE_COLLECTION, FIRESTORE_DOC_ID);
-      await setDoc(docRef, dataToSave, { merge: true });
+      // Clean undefined fields recursively so Firestore setDoc never rejects with Unsupported field value: undefined
+      const cleaned = JSON.parse(JSON.stringify(dataToSave));
+      await setDoc(docRef, cleaned, { merge: true });
       pendingChangesCounterRef.current = 0;
       setCloudStatus('connected');
       setLastCloudSync(new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
     } catch (err) {
       console.error('Gagal sinkronisasi data ke Cloud Firestore:', err);
       setCloudStatus('error');
+      pendingChangesCounterRef.current = 0;
     } finally {
       setIsCloudSyncing(false);
     }
@@ -251,21 +267,28 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Immediate state + cloud updater for real-time synchronization across any browser
   const applyChange = (updater: (prev: JatibarayaDatabase) => JatibarayaDatabase) => {
+    // 1. Calculate next state immediately from latestDataRef.current
+    const next = updater(latestDataRef.current);
+    latestDataRef.current = next;
     pendingChangesCounterRef.current += 1;
-    setData((prev) => {
-      const next = updater(prev);
-      latestDataRef.current = next;
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-      } catch (e) {
-        // Ignore quota
-      }
-      writeQueueRef.current = writeQueueRef.current.then(() => syncToFirestore(next));
-      return next;
-    });
+
+    // 2. Update React state immediately
+    setData(next);
+
+    // 3. Update localStorage synchronously
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+    } catch (e) {
+      // Ignore quota
+    }
+
+    // 4. Trigger cloud sync outside React's setState batch
+    writeQueueRef.current = writeQueueRef.current
+      .catch(() => {})
+      .then(() => syncToFirestore(next));
   };
 
-  // 3. Fallback debounced cloud persistence for rapid uncommitted changes
+  // Fallback debounced cloud persistence for rapid uncommitted changes
   useEffect(() => {
     if (pendingChangesCounterRef.current === 0) {
       return;
@@ -273,7 +296,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const timer = setTimeout(() => {
       const dataToSave = latestDataRef.current;
-      writeQueueRef.current = writeQueueRef.current.then(() => syncToFirestore(dataToSave));
+      writeQueueRef.current = writeQueueRef.current
+        .catch(() => {})
+        .then(() => syncToFirestore(dataToSave));
     }, 400);
 
     return () => clearTimeout(timer);
@@ -281,11 +306,10 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Mutex-protected manual cloud save
   const saveToCloud = async () => {
-    const dataToSave = latestDataRef.current;
     return new Promise<void>((resolve, reject) => {
       writeQueueRef.current = writeQueueRef.current
         .then(async () => {
-          await syncToFirestore(dataToSave);
+          await syncToFirestore(latestDataRef.current);
           resolve();
         })
         .catch(reject);
@@ -445,6 +469,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const addNews = (newsData: Omit<NewsItem, 'id' | 'created_at' | 'updated_at' | 'slug'>) => {
     const newItem: NewsItem = {
       ...newsData,
+      imageUrl: newsData.imageUrl || '',
       id: `news-${Date.now()}`,
       slug: slugify(newsData.title) || `news-${Date.now()}`,
       created_at: new Date().toISOString(),
@@ -506,6 +531,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const addArticle = (artData: Omit<ArticleItem, 'id' | 'created_at' | 'updated_at' | 'slug'>) => {
     const newItem: ArticleItem = {
       ...artData,
+      imageUrl: artData.imageUrl || '',
       id: `art-${Date.now()}`,
       slug: slugify(artData.title) || `art-${Date.now()}`,
       created_at: new Date().toISOString(),
@@ -561,6 +587,68 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       'DELETE_ARTICLE',
       'article',
       `Menghapus artikel: "${target?.title || id}"`
+    ).catch(() => {});
+  };
+
+  const addBahtsul = (bmData: Omit<BahtsulMasailItem, 'id' | 'created_at' | 'updated_at' | 'slug'>) => {
+    const newItem: BahtsulMasailItem = {
+      ...bmData,
+      id: `bm-${Date.now()}`,
+      slug: slugify(bmData.title) || `bm-${Date.now()}`,
+      status: bmData.status || 'sah',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    applyChange((prev) => ({
+      ...prev,
+      bahtsulMasail: [newItem, ...(prev.bahtsulMasail || [])],
+    }));
+
+    recordAuditLog(
+      'ADD_BAHTSUL',
+      'bahtsul',
+      `Menambahkan hasil Bahtsul Masail: "${newItem.title}"`,
+      `Kategori: ${newItem.kategori} • Tingkat: ${newItem.tingkat || 'Jatibaraya'}`
+    ).catch(() => {});
+
+    return newItem;
+  };
+
+  const updateBahtsul = (id: string, updated: Partial<BahtsulMasailItem>) => {
+    applyChange((prev) => ({
+      ...prev,
+      bahtsulMasail: (prev.bahtsulMasail || []).map((item) => {
+        if (item.id === id) {
+          const newTitle = updated.title ?? item.title;
+          return {
+            ...item,
+            ...updated,
+            slug: updated.title ? slugify(newTitle) : item.slug,
+            updated_at: new Date().toISOString(),
+          };
+        }
+        return item;
+      }),
+    }));
+
+    recordAuditLog(
+      'UPDATE_BAHTSUL',
+      'bahtsul',
+      `Memperbarui hasil Bahtsul Masail: "${updated.title || id}"`
+    ).catch(() => {});
+  };
+
+  const deleteBahtsul = (id: string) => {
+    const target = (data.bahtsulMasail || []).find((b) => b.id === id);
+    applyChange((prev) => ({
+      ...prev,
+      bahtsulMasail: (prev.bahtsulMasail || []).filter((item) => item.id !== id),
+    }));
+
+    recordAuditLog(
+      'DELETE_BAHTSUL',
+      'bahtsul',
+      `Menghapus hasil Bahtsul Masail: "${target?.title || id}"`
     ).catch(() => {});
   };
 
@@ -716,6 +804,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         addArticle,
         updateArticle,
         deleteArticle,
+        addBahtsul,
+        updateBahtsul,
+        deleteBahtsul,
         addAnnouncement,
         updateAnnouncement,
         deleteAnnouncement,

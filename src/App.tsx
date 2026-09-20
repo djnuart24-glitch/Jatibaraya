@@ -34,7 +34,7 @@ function MainApplication() {
       } else if (['beranda', 'tentang', 'identitas', 'program', 'informasi', 'dokumentasi', 'kontak'].includes(cleanHash)) {
         setActivePublicTab(cleanHash);
         setViewMode('public');
-      } else if (cleanHash.startsWith('berita') || cleanHash.startsWith('artikel') || cleanHash.startsWith('pengumuman')) {
+      } else if (cleanHash.startsWith('berita') || cleanHash.startsWith('artikel') || cleanHash.startsWith('bahtsul') || cleanHash.startsWith('pengumuman')) {
         setActivePublicTab('informasi');
         setViewMode('public');
       }

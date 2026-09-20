@@ -128,6 +128,20 @@ export const Footer: React.FC<FooterProps> = ({ onSelectTab, onOpenAdmin }) => {
               </li>
               <li>
                 <button
+                  id="footer-nav-bahtsul"
+                  onClick={() => {
+                    window.location.hash = 'informasi?tipe=bahtsul';
+                    onSelectTab('informasi');
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                  className="hover:text-amber-300 transition-colors text-slate-400 cursor-pointer flex items-center gap-1.5"
+                >
+                  <span>Hasil Bahtsul Masail</span>
+                  <span className="text-[10px] px-1.5 py-0.2 rounded bg-emerald-950 text-amber-300 border border-emerald-800/80">Fiqih</span>
+                </button>
+              </li>
+              <li>
+                <button
                   id="footer-nav-dokumentasi"
                   onClick={() => {
                     onSelectTab('dokumentasi');

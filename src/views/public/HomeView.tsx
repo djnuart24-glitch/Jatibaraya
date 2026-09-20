@@ -14,6 +14,8 @@ import {
   Layers,
   Award,
   Share2,
+  Scroll,
+  Scale,
 } from 'lucide-react';
 import { ShareModal } from '../../components/common/ShareModal';
 import { ShareableItem } from '../../utils/shareUtils';
@@ -30,7 +32,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
   onOpenProgramDetail,
 }) => {
   const { data } = useJatibarayaData();
-  const { settings, stats, programs, news, articles, media } = data;
+  const { settings, stats, programs, news, articles, media, bahtsulMasail } = data;
 
   const hasCustomLogo =
     Boolean(settings.logoUrl) &&
@@ -39,7 +41,8 @@ export const HomeView: React.FC<HomeViewProps> = ({
 
   const featuredPrograms = programs.filter((p) => p.published && p.featured).slice(0, 4);
   const latestNews = news.filter((n) => n.published).slice(0, 3);
-  const latestArticles = articles.filter((a) => a.published).slice(0, 2);
+  const latestArticles = articles.filter((a) => a.published).slice(0, 4);
+  const latestBahtsul = (bahtsulMasail || []).filter((b) => b.published).slice(0, 2);
   const highlightMedia = media.slice(0, 4);
 
   const [shareTarget, setShareTarget] = useState<ShareableItem | null>(null);
@@ -421,9 +424,23 @@ export const HomeView: React.FC<HomeViewProps> = ({
 
           {/* Artikel Santri Column */}
           <div className="lg:col-span-5 space-y-6">
-            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 font-mono">
-              Artikel & Refleksi Santri
-            </h3>
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 font-mono">
+                Artikel & Refleksi Santri
+              </h3>
+              {articles.filter((a) => a.published).length > 0 && (
+                <button
+                  onClick={() => {
+                    window.location.hash = 'informasi?tipe=artikel';
+                    onSelectTab('informasi');
+                  }}
+                  className="text-xs font-semibold text-emerald-800 hover:text-emerald-950 inline-flex items-center gap-1 cursor-pointer"
+                >
+                  <span>Semua Artikel</span>
+                  <ChevronRight className="w-3.5 h-3.5 text-amber-600" />
+                </button>
+              )}
+            </div>
             {latestArticles.length === 0 ? (
               <div className="p-8 rounded-2xl bg-slate-50 border border-slate-200 text-center text-slate-500 text-sm">
                 Belum ada artikel yang dipublikasikan.
@@ -482,6 +499,108 @@ export const HomeView: React.FC<HomeViewProps> = ({
               ))
             )}
           </div>
+        </div>
+      </section>
+
+      {/* 5B. HASIL BAHTSUL MASAIL HIGHLIGHT */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="bg-gradient-to-br from-slate-900 via-emerald-950 to-slate-950 rounded-3xl p-6 sm:p-10 border border-emerald-800/50 shadow-xl relative overflow-hidden">
+          {/* Subtle Islamic Motif / Watermark effect */}
+          <div className="absolute -right-12 -top-12 w-64 h-64 bg-emerald-600/10 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute -left-12 -bottom-12 w-64 h-64 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
+
+          <div className="relative z-10 flex flex-col md:flex-row md:items-end justify-between mb-8 gap-4">
+            <div>
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-400/20 text-amber-300 text-xs font-semibold border border-amber-400/30 mb-2">
+                <Scroll className="w-3.5 h-3.5 text-amber-400" />
+                <span>Ketetapan Fiqhiyyah Santri</span>
+              </div>
+              <h2 className="text-2xl sm:text-3xl font-serif font-bold text-white tracking-tight">
+                Hasil Bahtsul Masail Jatibaraya
+              </h2>
+              <p className="text-emerald-100/80 text-xs sm:text-sm mt-1 max-w-2xl font-light">
+                Keputusan musyawarah fiqih santri Priangan terhadap problematika waqi&apos;iyyah kontemporer berlandaskan ibarat kutubut turats salafiyah.
+              </p>
+            </div>
+            <button
+              onClick={() => {
+                window.location.hash = 'informasi?tipe=bahtsul';
+                onSelectTab('informasi');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+              className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold text-emerald-950 bg-amber-400 hover:bg-amber-300 transition-colors cursor-pointer self-start md:self-auto shadow-md"
+            >
+              <span>Buka Semua Bahtsul Masail</span>
+              <ArrowRight className="w-4 h-4" />
+            </button>
+          </div>
+
+          {latestBahtsul.length === 0 ? (
+            <div className="p-8 rounded-2xl bg-white/5 border border-white/10 text-center space-y-2">
+              <p className="text-sm text-emerald-200 font-serif">
+                Dokumentasi Bahtsul Masail Jatibaraya dapat diakses dan diperbarui melalui Dashboard Admin.
+              </p>
+              <p className="text-xs text-slate-400">
+                Warga dan pengurus dapat mendaftarkan keputusan fiqih beserta ta&apos;bir kitab kuning.
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {latestBahtsul.map((b) => (
+                <div
+                  key={b.id}
+                  className="bg-white/10 backdrop-blur-xs rounded-2xl p-6 border border-white/15 hover:border-amber-400/50 transition-all flex flex-col justify-between space-y-4"
+                >
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="px-2.5 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 font-semibold border border-emerald-500/30">
+                        {b.kategori}
+                      </span>
+                      <span className="text-slate-400 font-mono text-[11px]">{b.tanggal}</span>
+                    </div>
+
+                    <h3
+                      onClick={() => {
+                        window.location.hash = `informasi?tipe=bahtsul&id=${encodeURIComponent(b.id)}`;
+                        onSelectTab('informasi');
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                      }}
+                      className="text-lg font-serif font-bold text-white hover:text-amber-300 transition-colors cursor-pointer leading-snug"
+                    >
+                      {b.title}
+                    </h3>
+
+                    <div className="p-3 rounded-xl bg-slate-950/40 border border-white/10 space-y-1">
+                      <span className="text-[10px] uppercase font-mono text-slate-400 block font-bold">
+                        Al-Jawab (Keputusan Hukum):
+                      </span>
+                      <p className="text-xs text-emerald-100 font-medium line-clamp-3 leading-relaxed">
+                        {b.jawaban}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="pt-3 border-t border-white/10 flex items-center justify-between gap-3">
+                    <span className="text-[11px] text-slate-400 truncate">
+                      {b.mushahih ? `Mushahih: ${b.mushahih}` : b.musyawirin || 'Tim Jatibaraya'}
+                    </span>
+
+                    <button
+                      onClick={() => {
+                        window.location.hash = `informasi?tipe=bahtsul&id=${encodeURIComponent(b.id)}`;
+                        onSelectTab('informasi');
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                      }}
+                      className="text-xs font-semibold text-amber-300 hover:text-amber-200 inline-flex items-center gap-1 cursor-pointer py-1 px-2"
+                    >
+                      <span>Lihat Ta&apos;bir</span>
+                      <ChevronRight className="w-3.5 h-3.5 text-amber-400" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </section>
 

@@ -10,6 +10,7 @@ import { AdminIdentityView } from './AdminIdentityView';
 import { AdminProgramsView } from './AdminProgramsView';
 import { AdminNewsView } from './AdminNewsView';
 import { AdminArticlesView } from './AdminArticlesView';
+import { AdminBahtsulView } from './AdminBahtsulView';
 import { AdminAnnouncementsView } from './AdminAnnouncementsView';
 import { AdminDocumentationView } from './AdminDocumentationView';
 import { AdminStatsView } from './AdminStatsView';
@@ -63,6 +64,8 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ onViewPublic }) => {
         return <AdminNewsView />;
       case 'artikel':
         return <AdminArticlesView />;
+      case 'bahtsul':
+        return <AdminBahtsulView />;
       case 'pengumuman':
         return <AdminAnnouncementsView />;
       case 'dokumentasi':
@@ -124,7 +127,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ onViewPublic }) => {
 
           <div className="flex items-center gap-2.5">
             {/* Realtime Cloud Sync Pill */}
-            <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-mono bg-slate-50 border-slate-200">
+            <div className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1 sm:py-1.5 rounded-xl border text-xs font-mono bg-slate-50 border-slate-200">
               <span className="relative flex h-2 w-2">
                 {cloudStatus === 'connected' && (
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
@@ -135,14 +138,20 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ onViewPublic }) => {
                   cloudStatus === 'connecting' ? 'bg-sky-500' : 'bg-rose-500'
                 }`}></span>
               </span>
-              <span className="text-[11px] text-slate-700 font-sans font-medium flex items-center gap-1">
+              <span className="text-[10px] sm:text-[11px] text-slate-700 font-sans font-medium flex items-center gap-1">
                 <Cloud className="w-3 h-3 text-slate-500" />
-                {cloudStatus === 'connected' ? 'Cloud Online' :
-                 cloudStatus === 'syncing' ? 'Menyinkronkan...' :
-                 cloudStatus === 'connecting' ? 'Menghubungkan...' : 'Offline / Lokal'}
+                <span className="hidden xs:inline sm:inline">
+                  {cloudStatus === 'connected' ? 'Cloud Online' :
+                   cloudStatus === 'syncing' ? 'Menyinkronkan...' :
+                   cloudStatus === 'connecting' ? 'Menghubungkan...' : 'Offline / Lokal'}
+                </span>
+                <span className="inline xs:hidden sm:hidden">
+                  {cloudStatus === 'connected' ? 'Online' :
+                   cloudStatus === 'syncing' ? 'Sync...' : 'Offline'}
+                </span>
               </span>
               {lastCloudSync && (
-                <span className="text-[10px] text-slate-400">
+                <span className="hidden md:inline text-[10px] text-slate-400">
                   {lastCloudSync}
                 </span>
               )}

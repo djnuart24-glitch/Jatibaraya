@@ -77,6 +77,24 @@ export interface ArticleItem {
   updated_at: string;
 }
 
+export interface BahtsulMasailItem {
+  id: string;
+  title: string;          // Judul Mas'alah / Tema Kajian Fiqih
+  slug: string;
+  masalah: string;        // As-Su'al: Deskripsi Masalah & Kasus
+  jawaban: string;        // Al-Jawab: Keputusan Hukum Fiqhiyyah
+  ibarat?: string;        // Al-Ibarat: Kutipan / Ta'bir Referensi Kitab Kuning Turats
+  kategori: string;       // Ubudiyyah, Mu'amalah, Munakahah, Jinayah, Fiqih Kontemporer, dll.
+  tingkat?: string;       // Forum Komisi Bahtsul Masail Jatibaraya, Kajian Lirboyo, dll.
+  tanggal: string;        // YYYY-MM-DD
+  musyawirin?: string;    // Dewan Musyawirin / Perumus / Notulen
+  mushahih?: string;      // Dewan Mushahih / Kiai / Masyayikh
+  status?: 'sah' | 'ditashih' | 'draft';
+  published: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface AnnouncementItem {
   id: string;
   title: string;
@@ -138,6 +156,7 @@ export type AuditLogCategory =
   | 'program'
   | 'news'
   | 'article'
+  | 'bahtsul'
   | 'announcement'
   | 'media'
   | 'system'
@@ -182,6 +201,7 @@ export interface JatibarayaDatabase {
   programs: ProgramItem[];
   news: NewsItem[];
   articles: ArticleItem[];
+  bahtsulMasail: BahtsulMasailItem[];
   announcements: AnnouncementItem[];
   media: MediaItem[];
   stats: OrganizationStats;

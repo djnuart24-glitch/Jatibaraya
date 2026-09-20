@@ -40,6 +40,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({ item, isOpen, onClose })
   const typeLabelMap: Record<string, string> = {
     berita: 'Berita',
     artikel: 'Artikel',
+    bahtsul: 'Hasil Bahtsul Masail',
     pengumuman: 'Pengumuman',
     program: 'Program Kerja',
   };

@@ -295,6 +295,49 @@ export const initialJatibarayaData: JatibarayaDatabase = {
     },
   ],
 
+  bahtsulMasail: [
+    {
+      id: 'bm-1',
+      title: 'Hukum Transaksi Fitur PayLater & Pembayaran Tempo Digital Menurut Tinjauan Fiqih',
+      slug: 'hukum-transaksi-paylater-digital-fiqih',
+      masalah:
+        'Seiring pesatnya perkembangan transaksi digital, marak masyarakat dan santri memanfaatkan layanan "PayLater" pada marketplace dan dompet digital. Pengguna membeli barang saat ini dan melakukan pembayaran di kemudian hari dengan dikenakan biaya administrasi atau margin bunga tertentu. Bagaimana kedudukan fiqih atas akad transaksi PayLater tersebut?',
+      jawaban:
+        'Transaksi PayLater pada dasarnya diklasifikasikan ke dalam dua bentuk akad:\n\n1. Jika skema yang diterapkan adalah akad Qardh (pinjaman dana) yang mensyaratkan adanya tambahan nominal pengembalian (bunga/riba) atas pokok hutang, maka hukumnya adalah HARAM secara ijma\' karena tergolong Riba Qardhi.\n\n2. Jika skema yang diterapkan berupa akad Murabahah bil Wakalah (pihak aplikasi/penyedia membeli barang atas pesanan konsumen lalu menjualnya kembali secara tempo dengan margin laba yang disepakati secara transparan sejak awal), maka hukumnya DIPERBOLEHKAN (Jawaz), dengan catatan tidak ada klausul denda keterlambatan yang diambil sebagai keuntungan pribadi kreditur.',
+      ibarat:
+        'عبارة من كتاب إعانة الطالبين، ج ٣، ص ٥٣:\n(قَوْلُهُ: كُلُّ قَرْضٍ جَرَّ مَنْفَعَةً) أَيْ شُرِطَ فِيهِ ذَلِكَ أَوْ كَانَ عُرْفًا مُطَّرِدًا، فَهُوَ رِبًا مُحَرَّمٌ إِجْمَاعًا.\n\nعبارة من بغية المسترشدين، ص ١٣٤:\n(فَائِدَةٌ): يَجُوزُ لِلْبَائِعِ أَنْ يَزِيدَ فِي الثَّمَنِ لِأَجْلِ التَّأْجِيلِ إِذَا عَقَدَ الْبَيْعَ عَلَى ثَمَنٍ مُعَيَّنٍ فِي حَالِ الْعَقْدِ وَلَمْ يَكُنْ هُنَاكَ شَرْطُ زِيَادَةٍ مَشْرُوطَةٍ مُتَأَخِّرَةٍ.',
+      kategori: 'Muamalah Kontemporer',
+      tingkat: 'Forum Musyawarah Bahtsul Masail Santri Priangan',
+      tanggal: '2026-08-20',
+      musyawirin: 'LBM Santri Jatibaraya (Perumus: Ust. Ahmad Fauzi, Katib: M. Salman)',
+      mushahih: 'Dewan Asatidz Pembina Santri Jatibaraya Kediri',
+      status: 'sah',
+      published: true,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    },
+    {
+      id: 'bm-2',
+      title: 'Keabsahan Penyaluran Zakat Fitrah Menggunakan Uang Tunai / Qimah bagi Madzhab Syafi\'i',
+      slug: 'keabsahan-zakat-fitrah-uang-tunai-madzhab-syafii',
+      masalah:
+        'Sebagian masyarakat Priangan Jawa Barat kerap menyalurkan zakat fitrah dalam wujud uang tunai (qimah) seharga bahan makanan pokok dengan alasan kepraktisan dan kebutuhan mustahiq. Bagaimanakah tinjauan fiqih keabsahan penunaian zakat fitrah menggunakan uang tunai?',
+      jawaban:
+        'Menurut Qaul Mu\'tamad dalam Madzhab Syafi\'i, zakat fitrah WAJIB dikeluarkan berupa makanan pokok setempat (beras 1 sha\' / ± 2,7 - 3 kg) dan TIDAK SAH jika dibayarkan berupa uang tunai (qimah).\n\nNamun, apabila terdapat hajat atau maslahat bagi mustahiq, diperbolehkan bertaklid (mengikuti) pendapat Madzhab Hanafi yang membolehkan qimah, atau mengikuti qaul Imam ar-Ruyani dari kalangan Syafi\'iyyah, dengan ketentuan besaran nominal uang yang dikeluarkan disesuaikan dengan standar madzhab yang diikuti.',
+      ibarat:
+        'عبارة من المجموع شرح المهذب للإمام النووي، ج ٦، ص ١١٠:\nلَا يُجْزِئُ فِي الْفِطْرَةِ إِخْرَاجُ الْقِيمَةِ عِنْدَنَا، وَبِهِ قَالَ مَالِكٌ وَأَحْمَدُ وَدَاوُدُ، وَقَالَ أَبُو حَنِيفَةَ: يَجُوزُ.\n\nعبارة من كفاية الأخيار، ص ١٩٤:\nوَالْأَوْلَى لِلْمُحْتَاطِ لِدِينِهِ أَنْ يُخْرِجَ عَيْنَ الْقُوتِ خُرُوجًا مِنَ الْخِلَافِ، فَإِنْ ضَاقَ الْأَمْرُ اتَّسَعَ بِالتَّقْلِيدِ.',
+      kategori: 'Ubudiyyah',
+      tingkat: 'Komisi Fiqhiyyah Jatibaraya',
+      tanggal: '2026-03-28',
+      musyawirin: 'Dewan Musyawirin Bahtsul Masail Jatibaraya',
+      mushahih: 'Masyayikh & Tim Perumus Fiqih Priangan',
+      status: 'sah',
+      published: true,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    },
+  ],
+
   announcements: [
     {
       id: 'ann-1',
