@@ -121,11 +121,15 @@ export const HomeView: React.FC<HomeViewProps> = ({
               <div className="relative p-6 sm:p-8 rounded-3xl bg-slate-900/80 border border-amber-400/30 backdrop-blur-md shadow-2xl flex flex-col items-center text-center space-y-4 max-w-xs">
                 <div className="p-3 rounded-2xl bg-gradient-to-b from-amber-400/15 via-sky-500/10 to-transparent border border-amber-400/40 flex items-center justify-center min-w-[100px] min-h-[100px]">
                   <img
-                    src={settings.logoUrl || '/assets/jatibaraya-logo.png'}
+                    src={
+                      settings.logoUrl && settings.logoUrl !== '/assets/jatibaraya-logo.svg'
+                        ? settings.logoUrl
+                        : '/assets/jatibaraya-logo.png'
+                    }
                     alt={settings.name}
                     className="w-24 h-24 sm:w-28 sm:h-28 object-contain rounded-2xl drop-shadow-md"
                     onError={(e) => {
-                      (e.target as HTMLImageElement).src = '/assets/jatibaraya-logo.svg';
+                      (e.target as HTMLImageElement).src = '/assets/jatibaraya-logo.png';
                     }}
                   />
                 </div>

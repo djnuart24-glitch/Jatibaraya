@@ -9,8 +9,8 @@ export const initialJatibarayaData: JatibarayaDatabase = {
     description:
       'Jatibaraya merupakan wadah kekeluargaan santri Priangan yang menjadi ruang untuk mempererat ukhuwah, mengembangkan potensi, serta menjalankan berbagai kegiatan pendidikan, dakwah, sosial, dan pengabdian masyarakat.',
     regions: ['Bandung', 'Garut', 'Sumedang', 'Cimahi'],
-    logoUrl: '/assets/jatibaraya-logo.svg',
-    faviconUrl: '/assets/jatibaraya-logo.svg',
+    logoUrl: '/assets/jatibaraya-logo.png',
+    faviconUrl: '/assets/jatibaraya-logo.png',
     primaryColor: '#047857', // Emerald 700 (Pesantren & Ukhuwah)
     accentColor: '#f59e0b',  // Amber 500 (Kujang Emas Priangan)
     footerText: "Wadah kekeluargaan santri Priangan (Bandung, Garut, Sumedang, Cimahi) di Pondok Pesantren Lirboyo Kediri.",

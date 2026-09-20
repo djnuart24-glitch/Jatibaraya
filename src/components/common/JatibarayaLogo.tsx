@@ -373,7 +373,9 @@ export const JatibarayaLogo: React.FC<LogoProps> = ({
     '2xl': 'w-32 h-32',
   };
 
-  const displayLogoUrl = logoUrl || '/assets/jatibaraya-logo.png';
+  const displayLogoUrl = (logoUrl && logoUrl !== '/assets/jatibaraya-logo.svg')
+    ? logoUrl
+    : '/assets/jatibaraya-logo.png';
 
   return (
     <div className="flex items-center gap-3 select-none">
@@ -384,8 +386,8 @@ export const JatibarayaLogo: React.FC<LogoProps> = ({
           className={`${containerSizes[size]} object-contain rounded-2xl shadow-xs`}
           onError={(e) => {
             const imgEl = e.target as HTMLImageElement;
-            if (!imgEl.src.endsWith('/assets/jatibaraya-logo.svg')) {
-              imgEl.src = '/assets/jatibaraya-logo.svg';
+            if (!imgEl.src.endsWith('/assets/jatibaraya-logo.png')) {
+              imgEl.src = '/assets/jatibaraya-logo.png';
             }
           }}
         />

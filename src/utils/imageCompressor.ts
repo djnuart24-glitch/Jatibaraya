@@ -41,8 +41,29 @@ export async function compressImageFile(file: File, maxDimension = 1200, quality
         // If it's a PNG, preserve PNG format to keep alpha transparency intact for logos
         if (file.type === 'image/png') {
           const pngDataUrl = canvas.toDataURL('image/png');
-          resolve(pngDataUrl);
-          return;
+          // If under 150KB string length, return directly
+          if (pngDataUrl.length <= 180000) {
+            resolve(pngDataUrl);
+            return;
+          }
+          // If too large, scale down further to max 512px to preserve transparency while keeping size small
+          const scaleFactor = Math.min(512 / width, 512 / height, 1);
+          if (scaleFactor < 1) {
+            const smallCanvas = document.createElement('canvas');
+            smallCanvas.width = Math.round(width * scaleFactor);
+            smallCanvas.height = Math.round(height * scaleFactor);
+            const smallCtx = smallCanvas.getContext('2d');
+            if (smallCtx) {
+              smallCtx.imageSmoothingEnabled = true;
+              smallCtx.imageSmoothingQuality = 'high';
+              smallCtx.drawImage(img, 0, 0, smallCanvas.width, smallCanvas.height);
+              const smallPng = smallCanvas.toDataURL('image/png');
+              if (smallPng.length <= 250000) {
+                resolve(smallPng);
+                return;
+              }
+            }
+          }
         }
 
         // Otherwise export as JPEG with controlled quality

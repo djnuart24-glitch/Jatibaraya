@@ -39,7 +39,24 @@ export const AdminSettingsView: React.FC = () => {
   const [fullName, setFullName] = useState(settings.fullName);
   const [primaryColor, setPrimaryColor] = useState(settings.primaryColor);
   const [accentColor, setAccentColor] = useState(settings.accentColor);
-  const [logoUrl, setLogoUrl] = useState(settings.logoUrl || '');
+  const [logoUrl, setLogoUrl] = useState(
+    settings.logoUrl && settings.logoUrl !== '/assets/jatibaraya-logo.svg'
+      ? settings.logoUrl
+      : '/assets/jatibaraya-logo.png'
+  );
+
+  // Keep form in sync when settings update from Firestore
+  React.useEffect(() => {
+    setName(settings.name);
+    setFullName(settings.fullName);
+    setPrimaryColor(settings.primaryColor);
+    setAccentColor(settings.accentColor);
+    setLogoUrl(
+      settings.logoUrl && settings.logoUrl !== '/assets/jatibaraya-logo.svg'
+        ? settings.logoUrl
+        : '/assets/jatibaraya-logo.png'
+    );
+  }, [settings.name, settings.fullName, settings.primaryColor, settings.accentColor, settings.logoUrl]);
 
   // Password state
   const [oldPassword, setOldPassword] = useState('');
@@ -267,18 +284,37 @@ export const AdminSettingsView: React.FC = () => {
 
           <div className="pt-2 border-t border-slate-100 space-y-2">
             <ImageUploader
-              label="Logo Organisasi (Opsional, jika ingin mengunggah file gambar kustom)"
+              label="Logo Organisasi (Pilih atau unggah file gambar kustom)"
               categoryFolder="LOGO"
               currentImageUrl={logoUrl}
-              onImageSelected={setLogoUrl}
+              onImageSelected={(newUrl) => {
+                const finalUrl = newUrl || '/assets/jatibaraya-logo.png';
+                setLogoUrl(finalUrl);
+                updateSettings({
+                  logoUrl: finalUrl,
+                  faviconUrl: finalUrl,
+                });
+                setIsSaved(true);
+                setSavedTime(new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+                setTimeout(() => setIsSaved(false), 4000);
+              }}
             />
-            {logoUrl && logoUrl !== '/assets/jatibaraya-logo.svg' && (
+            {logoUrl && logoUrl !== '/assets/jatibaraya-logo.png' && (
               <button
                 type="button"
-                onClick={() => setLogoUrl('/assets/jatibaraya-logo.svg')}
+                onClick={() => {
+                  setLogoUrl('/assets/jatibaraya-logo.png');
+                  updateSettings({
+                    logoUrl: '/assets/jatibaraya-logo.png',
+                    faviconUrl: '/assets/jatibaraya-logo.png',
+                  });
+                  setIsSaved(true);
+                  setSavedTime(new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+                  setTimeout(() => setIsSaved(false), 4000);
+                }}
                 className="text-xs text-emerald-800 hover:text-emerald-950 underline font-medium cursor-pointer"
               >
-                Gunakan Lambang Vektor Resmi (Default)
+                Gunakan Logo Resmi Jatibaraya (Default)
               </button>
             )}
           </div>

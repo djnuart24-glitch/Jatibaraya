@@ -93,10 +93,10 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const mergedSettings = {
           ...initialJatibarayaData.settings,
           ...parsed.settings,
-          logoUrl: (parsed.settings?.logoUrl && parsed.settings.logoUrl.trim() !== '')
+          logoUrl: (parsed.settings?.logoUrl && parsed.settings.logoUrl.trim() !== '' && parsed.settings.logoUrl !== '/assets/jatibaraya-logo.svg')
             ? parsed.settings.logoUrl
             : initialJatibarayaData.settings.logoUrl,
-          faviconUrl: (parsed.settings?.faviconUrl && parsed.settings.faviconUrl.trim() !== '')
+          faviconUrl: (parsed.settings?.faviconUrl && parsed.settings.faviconUrl.trim() !== '' && parsed.settings.faviconUrl !== '/assets/jatibaraya-logo.svg')
             ? parsed.settings.faviconUrl
             : initialJatibarayaData.settings.faviconUrl,
         };
@@ -156,8 +156,16 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 settings: remote.settings ? {
                   ...initialJatibarayaData.settings,
                   ...remote.settings,
-                  logoUrl: remote.settings.logoUrl || prev.settings?.logoUrl || initialJatibarayaData.settings.logoUrl,
-                  faviconUrl: remote.settings.faviconUrl || prev.settings?.faviconUrl || initialJatibarayaData.settings.faviconUrl,
+                  logoUrl: (remote.settings.logoUrl && remote.settings.logoUrl !== '/assets/jatibaraya-logo.svg')
+                    ? remote.settings.logoUrl
+                    : (prev.settings?.logoUrl && prev.settings.logoUrl !== '/assets/jatibaraya-logo.svg')
+                      ? prev.settings.logoUrl
+                      : initialJatibarayaData.settings.logoUrl,
+                  faviconUrl: (remote.settings.faviconUrl && remote.settings.faviconUrl !== '/assets/jatibaraya-logo.svg')
+                    ? remote.settings.faviconUrl
+                    : (prev.settings?.faviconUrl && prev.settings.faviconUrl !== '/assets/jatibaraya-logo.svg')
+                      ? prev.settings.faviconUrl
+                      : initialJatibarayaData.settings.faviconUrl,
                 } : prev.settings,
                 about: remote.about ? {
                   ...initialJatibarayaData.about,
@@ -252,6 +260,15 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const docRef = doc(db, FIRESTORE_COLLECTION, FIRESTORE_DOC_ID);
       // Clean undefined fields recursively so Firestore setDoc never rejects with Unsupported field value: undefined
       const cleaned = JSON.parse(JSON.stringify(dataToSave));
+      // Safeguard against individual media objects with oversize base64 blowing the 1MB Firestore document limit
+      if (Array.isArray(cleaned.media)) {
+        cleaned.media = cleaned.media.map((item: any) => {
+          if (item?.imageUrl && typeof item.imageUrl === 'string' && item.imageUrl.startsWith('data:image') && item.imageUrl.length > 200000) {
+            return { ...item, imageUrl: '/assets/jatibaraya-logo.png' };
+          }
+          return item;
+        });
+      }
       await setDoc(docRef, cleaned, { merge: true });
       pendingChangesCounterRef.current = 0;
       setCloudStatus('connected');
