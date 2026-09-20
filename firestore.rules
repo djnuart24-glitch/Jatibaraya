@@ -6,10 +6,30 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
-    // Public website content & admin management
-    match /content/{docId} {
-      allow read: if true;
-      allow write: if true;
+    // Public website content & collections
+    match /content/{document=**} {
+      allow read, write: if true;
+    }
+    match /news/{docId} {
+      allow read, write: if true;
+    }
+    match /articles/{docId} {
+      allow read, write: if true;
+    }
+    match /bahtsul_masail/{docId} {
+      allow read, write: if true;
+    }
+    match /announcements/{docId} {
+      allow read, write: if true;
+    }
+    match /programs/{docId} {
+      allow read, write: if true;
+    }
+    match /media/{docId} {
+      allow read, write: if true;
+    }
+    match /audit_logs/{docId} {
+      allow read, write: if true;
     }
   }
 }

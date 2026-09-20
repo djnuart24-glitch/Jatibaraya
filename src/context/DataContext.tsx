@@ -16,7 +16,7 @@ import {
 } from '../types';
 import { initialJatibarayaData } from '../data/initialData';
 import { db } from '../lib/firebase';
-import { doc, onSnapshot, setDoc } from 'firebase/firestore';
+import { doc, onSnapshot, setDoc, deleteDoc, collection } from 'firebase/firestore';
 import { recordAuditLog } from '../services/auditService';
 
 const STORAGE_KEY = 'jatibaraya_database_v1';
@@ -133,17 +133,19 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const latestDataRef = useRef<JatibarayaDatabase>(data);
   latestDataRef.current = data;
 
-  // 1. Listen for real-time changes from Firestore
+  // 1. Listen for real-time changes from Firestore (both main document and individual collections)
   useEffect(() => {
-    let unsubscribe: (() => void) | null = null;
+    const unsubs: (() => void)[] = [];
+
     try {
+      // Main site settings & general content listener
       const docRef = doc(db, FIRESTORE_COLLECTION, FIRESTORE_DOC_ID);
-      unsubscribe = onSnapshot(
+      const unsubMain = onSnapshot(
         docRef,
         (snapshot) => {
           if (snapshot.exists()) {
             const remote = snapshot.data() as Partial<JatibarayaDatabase>;
-            
+
             // If local uncommitted changes are in flight, do not overwrite with stale snapshot
             if (pendingChangesCounterRef.current > 0) {
               return;
@@ -174,21 +176,21 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 symbols: Array.isArray(remote.symbols) && remote.symbols.length > 0
                   ? remote.symbols
                   : prev.symbols,
-                programs: Array.isArray(remote.programs)
-                  ? remote.programs
-                  : prev.programs,
-                news: Array.isArray(remote.news)
-                  ? remote.news
-                  : prev.news,
-                articles: Array.isArray(remote.articles)
-                  ? remote.articles
-                  : prev.articles,
-                bahtsulMasail: Array.isArray(remote.bahtsulMasail)
-                  ? remote.bahtsulMasail
-                  : (prev.bahtsulMasail || initialJatibarayaData.bahtsulMasail || []),
-                announcements: Array.isArray(remote.announcements)
-                  ? remote.announcements
-                  : prev.announcements,
+                programs: prev.programs.length > 0
+                  ? prev.programs
+                  : (Array.isArray(remote.programs) ? remote.programs : prev.programs),
+                news: prev.news.length > 0
+                  ? prev.news
+                  : (Array.isArray(remote.news) ? remote.news : prev.news),
+                articles: prev.articles.length > 0
+                  ? prev.articles
+                  : (Array.isArray(remote.articles) ? remote.articles : prev.articles),
+                bahtsulMasail: (prev.bahtsulMasail && prev.bahtsulMasail.length > 0)
+                  ? prev.bahtsulMasail
+                  : (Array.isArray(remote.bahtsulMasail) ? remote.bahtsulMasail : initialJatibarayaData.bahtsulMasail),
+                announcements: prev.announcements.length > 0
+                  ? prev.announcements
+                  : (Array.isArray(remote.announcements) ? remote.announcements : prev.announcements),
                 media: Array.isArray(remote.media)
                   ? remote.media
                   : prev.media,
@@ -215,31 +217,102 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
             });
             setCloudStatus('connected');
             setLastCloudSync(new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
-          } else {
-            // First time: seed initial database to Firestore
-            setDoc(docRef, JSON.parse(JSON.stringify(initialJatibarayaData)), { merge: true })
-              .then(() => {
-                setCloudStatus('connected');
-                setLastCloudSync(new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
-              })
-              .catch((err) => {
-                console.warn('Gagal inisialisasi awal Firestore:', err);
-                setCloudStatus('error');
-              });
           }
         },
         (error) => {
-          console.warn('Firestore snapshot error:', error);
+          console.warn('Firestore main snapshot error:', error);
           setCloudStatus('error');
         }
       );
+      unsubs.push(unsubMain);
+
+      // Realtime listener for dedicated NEWS collection
+      const unsubNews = onSnapshot(collection(db, 'news'), (snapshot) => {
+        if (!snapshot.empty) {
+          const remoteNews = snapshot.docs.map((d) => d.data() as NewsItem);
+          remoteNews.sort((a, b) => new Date(b.date || b.created_at).getTime() - new Date(a.date || a.created_at).getTime());
+          setData((prev) => {
+            const next = { ...prev, news: remoteNews };
+            latestDataRef.current = next;
+            try { localStorage.setItem(STORAGE_KEY, JSON.stringify(next)); } catch {}
+            return next;
+          });
+          setCloudStatus('connected');
+        }
+      }, (err) => console.warn('News collection sync error:', err));
+      unsubs.push(unsubNews);
+
+      // Realtime listener for dedicated ARTICLES collection
+      const unsubArticles = onSnapshot(collection(db, 'articles'), (snapshot) => {
+        if (!snapshot.empty) {
+          const remoteArticles = snapshot.docs.map((d) => d.data() as ArticleItem);
+          remoteArticles.sort((a, b) => new Date(b.date || b.created_at).getTime() - new Date(a.date || a.created_at).getTime());
+          setData((prev) => {
+            const next = { ...prev, articles: remoteArticles };
+            latestDataRef.current = next;
+            try { localStorage.setItem(STORAGE_KEY, JSON.stringify(next)); } catch {}
+            return next;
+          });
+          setCloudStatus('connected');
+        }
+      }, (err) => console.warn('Articles collection sync error:', err));
+      unsubs.push(unsubArticles);
+
+      // Realtime listener for dedicated BAHTSUL MASAIL collection
+      const unsubBahtsul = onSnapshot(collection(db, 'bahtsul_masail'), (snapshot) => {
+        if (!snapshot.empty) {
+          const remoteBahtsul = snapshot.docs.map((d) => d.data() as BahtsulMasailItem);
+          remoteBahtsul.sort((a, b) => new Date(b.tanggal || b.created_at).getTime() - new Date(a.tanggal || a.created_at).getTime());
+          setData((prev) => {
+            const next = { ...prev, bahtsulMasail: remoteBahtsul };
+            latestDataRef.current = next;
+            try { localStorage.setItem(STORAGE_KEY, JSON.stringify(next)); } catch {}
+            return next;
+          });
+          setCloudStatus('connected');
+        }
+      }, (err) => console.warn('Bahtsul collection sync error:', err));
+      unsubs.push(unsubBahtsul);
+
+      // Realtime listener for dedicated ANNOUNCEMENTS collection
+      const unsubAnnouncements = onSnapshot(collection(db, 'announcements'), (snapshot) => {
+        if (!snapshot.empty) {
+          const remoteAnn = snapshot.docs.map((d) => d.data() as AnnouncementItem);
+          remoteAnn.sort((a, b) => new Date(b.date || b.created_at).getTime() - new Date(a.date || a.created_at).getTime());
+          setData((prev) => {
+            const next = { ...prev, announcements: remoteAnn };
+            latestDataRef.current = next;
+            try { localStorage.setItem(STORAGE_KEY, JSON.stringify(next)); } catch {}
+            return next;
+          });
+          setCloudStatus('connected');
+        }
+      }, (err) => console.warn('Announcements collection sync error:', err));
+      unsubs.push(unsubAnnouncements);
+
+      // Realtime listener for dedicated PROGRAMS collection
+      const unsubPrograms = onSnapshot(collection(db, 'programs'), (snapshot) => {
+        if (!snapshot.empty) {
+          const remotePrograms = snapshot.docs.map((d) => d.data() as ProgramItem);
+          remotePrograms.sort((a, b) => (a.order ?? 99) - (b.order ?? 99));
+          setData((prev) => {
+            const next = { ...prev, programs: remotePrograms };
+            latestDataRef.current = next;
+            try { localStorage.setItem(STORAGE_KEY, JSON.stringify(next)); } catch {}
+            return next;
+          });
+          setCloudStatus('connected');
+        }
+      }, (err) => console.warn('Programs collection sync error:', err));
+      unsubs.push(unsubPrograms);
+
     } catch (err) {
       console.warn('Koneksi Firestore gagal:', err);
       setCloudStatus('error');
     }
 
     return () => {
-      if (unsubscribe) unsubscribe();
+      unsubs.forEach((unsub) => unsub());
     };
   }, []);
 
@@ -260,10 +333,26 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const docRef = doc(db, FIRESTORE_COLLECTION, FIRESTORE_DOC_ID);
       // Clean undefined fields recursively so Firestore setDoc never rejects with Unsupported field value: undefined
       const cleaned = JSON.parse(JSON.stringify(dataToSave));
-      // Safeguard against individual media objects with oversize base64 blowing the 1MB Firestore document limit
+      // Safeguard against individual media, news, and article objects with oversize base64 blowing the 1MB Firestore document limit
       if (Array.isArray(cleaned.media)) {
         cleaned.media = cleaned.media.map((item: any) => {
-          if (item?.imageUrl && typeof item.imageUrl === 'string' && item.imageUrl.startsWith('data:image') && item.imageUrl.length > 200000) {
+          if (item?.imageUrl && typeof item.imageUrl === 'string' && item.imageUrl.startsWith('data:image') && item.imageUrl.length > 150000) {
+            return { ...item, imageUrl: '/assets/jatibaraya-logo.png' };
+          }
+          return item;
+        });
+      }
+      if (Array.isArray(cleaned.news)) {
+        cleaned.news = cleaned.news.map((item: any) => {
+          if (item?.imageUrl && typeof item.imageUrl === 'string' && item.imageUrl.startsWith('data:image') && item.imageUrl.length > 150000) {
+            return { ...item, imageUrl: '/assets/jatibaraya-logo.png' };
+          }
+          return item;
+        });
+      }
+      if (Array.isArray(cleaned.articles)) {
+        cleaned.articles = cleaned.articles.map((item: any) => {
+          if (item?.imageUrl && typeof item.imageUrl === 'string' && item.imageUrl.startsWith('data:image') && item.imageUrl.length > 150000) {
             return { ...item, imageUrl: '/assets/jatibaraya-logo.png' };
           }
           return item;
@@ -439,6 +528,10 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
+    // Direct Firestore persistence
+    setDoc(doc(db, 'programs', newItem.id), newItem).catch((err) =>
+      console.warn('Gagal simpan program ke Firestore:', err)
+    );
     applyChange((prev) => ({
       ...prev,
       programs: [newItem, ...prev.programs],
@@ -455,22 +548,38 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const updateProgram = (id: string, updated: Partial<ProgramItem>) => {
+    const target = latestDataRef.current.programs.find((p) => p.id === id);
+    const updatedItem: ProgramItem = {
+      ...(target || {}),
+      ...updated,
+      id,
+      updated_at: new Date().toISOString(),
+    } as ProgramItem;
+
+    // Direct Firestore persistence
+    setDoc(doc(db, 'programs', id), updatedItem, { merge: true }).catch((err) =>
+      console.warn('Gagal update program di Firestore:', err)
+    );
+
     applyChange((prev) => ({
       ...prev,
-      programs: prev.programs.map((item) =>
-        item.id === id ? { ...item, ...updated, updated_at: new Date().toISOString() } : item
-      ),
+      programs: prev.programs.map((item) => (item.id === id ? updatedItem : item)),
     }));
 
     recordAuditLog(
       'UPDATE_PROGRAM',
       'program',
-      `Memperbarui program "${updated.title || id}"`
+      `Memperbarui program "${updated.title || target?.title || id}"`
     ).catch(() => {});
   };
 
   const deleteProgram = (id: string) => {
     const target = data.programs.find((p) => p.id === id);
+    // Direct Firestore deletion
+    deleteDoc(doc(db, 'programs', id)).catch((err) =>
+      console.warn('Gagal hapus program di Firestore:', err)
+    );
+
     applyChange((prev) => ({
       ...prev,
       programs: prev.programs.filter((item) => item.id !== id),
@@ -492,9 +601,15 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
+
+    // Direct Firestore persistence - isolated document prevents 1MB overflow & overwrites
+    setDoc(doc(db, 'news', newItem.id), newItem).catch((err) =>
+      console.warn('Gagal simpan berita ke Firestore:', err)
+    );
+
     applyChange((prev) => ({
       ...prev,
-      news: [newItem, ...prev.news],
+      news: [newItem, ...prev.news.filter((n) => n.id !== newItem.id)],
     }));
 
     recordAuditLog(
@@ -508,31 +623,39 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const updateNews = (id: string, updated: Partial<NewsItem>) => {
+    const target = latestDataRef.current.news.find((n) => n.id === id);
+    const updatedItem: NewsItem = {
+      ...(target || {}),
+      ...updated,
+      id,
+      slug: updated.title ? slugify(updated.title) : (target?.slug || id),
+      updated_at: new Date().toISOString(),
+    } as NewsItem;
+
+    // Direct Firestore persistence
+    setDoc(doc(db, 'news', id), updatedItem, { merge: true }).catch((err) =>
+      console.warn('Gagal update berita di Firestore:', err)
+    );
+
     applyChange((prev) => ({
       ...prev,
-      news: prev.news.map((item) => {
-        if (item.id === id) {
-          const newTitle = updated.title ?? item.title;
-          return {
-            ...item,
-            ...updated,
-            slug: updated.title ? slugify(newTitle) : item.slug,
-            updated_at: new Date().toISOString(),
-          };
-        }
-        return item;
-      }),
+      news: prev.news.map((item) => (item.id === id ? updatedItem : item)),
     }));
 
     recordAuditLog(
       'UPDATE_NEWS',
       'news',
-      `Memperbarui berita: "${updated.title || id}"`
+      `Memperbarui berita: "${updated.title || target?.title || id}"`
     ).catch(() => {});
   };
 
   const deleteNews = (id: string) => {
-    const target = data.news.find((n) => n.id === id);
+    const target = latestDataRef.current.news.find((n) => n.id === id);
+    // Direct Firestore deletion
+    deleteDoc(doc(db, 'news', id)).catch((err) =>
+      console.warn('Gagal hapus berita di Firestore:', err)
+    );
+
     applyChange((prev) => ({
       ...prev,
       news: prev.news.filter((item) => item.id !== id),
@@ -554,9 +677,15 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
+
+    // Direct Firestore persistence
+    setDoc(doc(db, 'articles', newItem.id), newItem).catch((err) =>
+      console.warn('Gagal simpan artikel ke Firestore:', err)
+    );
+
     applyChange((prev) => ({
       ...prev,
-      articles: [newItem, ...prev.articles],
+      articles: [newItem, ...prev.articles.filter((a) => a.id !== newItem.id)],
     }));
 
     recordAuditLog(
@@ -570,31 +699,39 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const updateArticle = (id: string, updated: Partial<ArticleItem>) => {
+    const target = latestDataRef.current.articles.find((a) => a.id === id);
+    const updatedItem: ArticleItem = {
+      ...(target || {}),
+      ...updated,
+      id,
+      slug: updated.title ? slugify(updated.title) : (target?.slug || id),
+      updated_at: new Date().toISOString(),
+    } as ArticleItem;
+
+    // Direct Firestore persistence
+    setDoc(doc(db, 'articles', id), updatedItem, { merge: true }).catch((err) =>
+      console.warn('Gagal update artikel di Firestore:', err)
+    );
+
     applyChange((prev) => ({
       ...prev,
-      articles: prev.articles.map((item) => {
-        if (item.id === id) {
-          const newTitle = updated.title ?? item.title;
-          return {
-            ...item,
-            ...updated,
-            slug: updated.title ? slugify(newTitle) : item.slug,
-            updated_at: new Date().toISOString(),
-          };
-        }
-        return item;
-      }),
+      articles: prev.articles.map((item) => (item.id === id ? updatedItem : item)),
     }));
 
     recordAuditLog(
       'UPDATE_ARTICLE',
       'article',
-      `Memperbarui artikel: "${updated.title || id}"`
+      `Memperbarui artikel: "${updated.title || target?.title || id}"`
     ).catch(() => {});
   };
 
   const deleteArticle = (id: string) => {
-    const target = data.articles.find((a) => a.id === id);
+    const target = latestDataRef.current.articles.find((a) => a.id === id);
+    // Direct Firestore deletion
+    deleteDoc(doc(db, 'articles', id)).catch((err) =>
+      console.warn('Gagal hapus artikel di Firestore:', err)
+    );
+
     applyChange((prev) => ({
       ...prev,
       articles: prev.articles.filter((item) => item.id !== id),
@@ -616,9 +753,15 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
+
+    // Direct Firestore persistence
+    setDoc(doc(db, 'bahtsul_masail', newItem.id), newItem).catch((err) =>
+      console.warn('Gagal simpan Bahtsul Masail ke Firestore:', err)
+    );
+
     applyChange((prev) => ({
       ...prev,
-      bahtsulMasail: [newItem, ...(prev.bahtsulMasail || [])],
+      bahtsulMasail: [newItem, ...(prev.bahtsulMasail || []).filter((b) => b.id !== newItem.id)],
     }));
 
     recordAuditLog(
@@ -632,31 +775,39 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const updateBahtsul = (id: string, updated: Partial<BahtsulMasailItem>) => {
+    const target = (latestDataRef.current.bahtsulMasail || []).find((b) => b.id === id);
+    const updatedItem: BahtsulMasailItem = {
+      ...(target || {}),
+      ...updated,
+      id,
+      slug: updated.title ? slugify(updated.title) : (target?.slug || id),
+      updated_at: new Date().toISOString(),
+    } as BahtsulMasailItem;
+
+    // Direct Firestore persistence
+    setDoc(doc(db, 'bahtsul_masail', id), updatedItem, { merge: true }).catch((err) =>
+      console.warn('Gagal update Bahtsul Masail di Firestore:', err)
+    );
+
     applyChange((prev) => ({
       ...prev,
-      bahtsulMasail: (prev.bahtsulMasail || []).map((item) => {
-        if (item.id === id) {
-          const newTitle = updated.title ?? item.title;
-          return {
-            ...item,
-            ...updated,
-            slug: updated.title ? slugify(newTitle) : item.slug,
-            updated_at: new Date().toISOString(),
-          };
-        }
-        return item;
-      }),
+      bahtsulMasail: (prev.bahtsulMasail || []).map((item) => (item.id === id ? updatedItem : item)),
     }));
 
     recordAuditLog(
       'UPDATE_BAHTSUL',
       'bahtsul',
-      `Memperbarui hasil Bahtsul Masail: "${updated.title || id}"`
+      `Memperbarui hasil Bahtsul Masail: "${updated.title || target?.title || id}"`
     ).catch(() => {});
   };
 
   const deleteBahtsul = (id: string) => {
-    const target = (data.bahtsulMasail || []).find((b) => b.id === id);
+    const target = (latestDataRef.current.bahtsulMasail || []).find((b) => b.id === id);
+    // Direct Firestore deletion
+    deleteDoc(doc(db, 'bahtsul_masail', id)).catch((err) =>
+      console.warn('Gagal hapus Bahtsul Masail di Firestore:', err)
+    );
+
     applyChange((prev) => ({
       ...prev,
       bahtsulMasail: (prev.bahtsulMasail || []).filter((item) => item.id !== id),
@@ -676,9 +827,15 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
+
+    // Direct Firestore persistence
+    setDoc(doc(db, 'announcements', newItem.id), newItem).catch((err) =>
+      console.warn('Gagal simpan pengumuman ke Firestore:', err)
+    );
+
     applyChange((prev) => ({
       ...prev,
-      announcements: [newItem, ...prev.announcements],
+      announcements: [newItem, ...prev.announcements.filter((a) => a.id !== newItem.id)],
     }));
 
     recordAuditLog(
@@ -692,22 +849,38 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const updateAnnouncement = (id: string, updated: Partial<AnnouncementItem>) => {
+    const target = latestDataRef.current.announcements.find((a) => a.id === id);
+    const updatedItem: AnnouncementItem = {
+      ...(target || {}),
+      ...updated,
+      id,
+      updated_at: new Date().toISOString(),
+    } as AnnouncementItem;
+
+    // Direct Firestore persistence
+    setDoc(doc(db, 'announcements', id), updatedItem, { merge: true }).catch((err) =>
+      console.warn('Gagal update pengumuman di Firestore:', err)
+    );
+
     applyChange((prev) => ({
       ...prev,
-      announcements: prev.announcements.map((item) =>
-        item.id === id ? { ...item, ...updated, updated_at: new Date().toISOString() } : item
-      ),
+      announcements: prev.announcements.map((item) => (item.id === id ? updatedItem : item)),
     }));
 
     recordAuditLog(
       'UPDATE_ANNOUNCEMENT',
       'announcement',
-      `Memperbarui pengumuman: "${updated.title || id}"`
+      `Memperbarui pengumuman: "${updated.title || target?.title || id}"`
     ).catch(() => {});
   };
 
   const deleteAnnouncement = (id: string) => {
-    const target = data.announcements.find((a) => a.id === id);
+    const target = latestDataRef.current.announcements.find((a) => a.id === id);
+    // Direct Firestore deletion
+    deleteDoc(doc(db, 'announcements', id)).catch((err) =>
+      console.warn('Gagal hapus pengumuman di Firestore:', err)
+    );
+
     applyChange((prev) => ({
       ...prev,
       announcements: prev.announcements.filter((item) => item.id !== id),
