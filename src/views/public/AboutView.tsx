@@ -1,5 +1,6 @@
 import React from 'react';
 import { useJatibarayaData } from '../../context/DataContext';
+import { useMetaTags } from '../../hooks/useMetaTags';
 import { CheckCircle2, Shield, Heart, GraduationCap, Compass, ArrowRight } from 'lucide-react';
 
 interface AboutViewProps {
@@ -9,6 +10,12 @@ interface AboutViewProps {
 export const AboutView: React.FC<AboutViewProps> = ({ onSelectTab }) => {
   const { data } = useJatibarayaData();
   const { about, settings } = data;
+
+  useMetaTags(
+    `Tentang — ${settings.name}`,
+    `Visi, Misi, Sifat, dan Fungsi ${settings.fullName || settings.name}. Wadah kekeluargaan santri Priangan di Pondok Pesantren Lirboyo Kediri.`,
+    settings.logoUrl || '/assets/jatibaraya-logo.png'
+  );
 
   return (
     <div className="py-12 space-y-16 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

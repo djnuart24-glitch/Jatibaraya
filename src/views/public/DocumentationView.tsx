@@ -1,11 +1,19 @@
 import React, { useState } from 'react';
 import { useJatibarayaData } from '../../context/DataContext';
+import { useMetaTags } from '../../hooks/useMetaTags';
+import { OptimizedImage } from '../../components/common/OptimizedImage';
 import { MediaItem } from '../../types';
 import { Sparkles, X, ZoomIn, Calendar, Filter } from 'lucide-react';
 
 export const DocumentationView: React.FC = () => {
   const { data } = useJatibarayaData();
-  const { media } = data;
+  const { media, settings } = data;
+
+  useMetaTags(
+    `Galeri Dokumentasi Foto — ${settings.name}`,
+    `Arsip foto dokumentasi kegiatan santri Priangan: pengajian, musyawarah, safari dakwah, dan kebersamaan di Lirboyo serta Priangan.`,
+    settings.logoUrl || '/assets/jatibaraya-logo.png'
+  );
 
   const [selectedCategory, setSelectedCategory] = useState<string>('Semua');
   const [activeLightbox, setActiveLightbox] = useState<MediaItem | null>(null);
@@ -70,11 +78,12 @@ export const DocumentationView: React.FC = () => {
               onClick={() => setActiveLightbox(item)}
               className="group relative h-80 rounded-3xl overflow-hidden bg-slate-950 border border-slate-200 shadow-xs hover:shadow-xl transition-all cursor-pointer"
             >
-              <img
+              <OptimizedImage
                 src={item.imageUrl}
                 alt={item.title}
-                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 opacity-90 group-hover:opacity-100"
                 loading="lazy"
+                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 opacity-90 group-hover:opacity-100"
+                containerClassName="w-full h-full"
               />
 
               <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-transparent p-6 flex flex-col justify-between">

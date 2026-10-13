@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { DataProvider } from './context/DataContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { Navbar } from './components/common/Navbar';
 import { Footer } from './components/common/Footer';
 import { HomeView } from './views/public/HomeView';
@@ -72,9 +73,17 @@ function MainApplication() {
   // ADMIN MODE
   if (viewMode === 'admin') {
     if (!isAuthenticated) {
-      return <AdminLoginView onBackToPublic={handleBackToPublic} />;
+      return (
+        <ErrorBoundary>
+          <AdminLoginView onBackToPublic={handleBackToPublic} />
+        </ErrorBoundary>
+      );
     }
-    return <AdminLayout onViewPublic={handleBackToPublic} />;
+    return (
+      <ErrorBoundary>
+        <AdminLayout onViewPublic={handleBackToPublic} />
+      </ErrorBoundary>
+    );
   }
 
   // PUBLIC WEBSITE MODE
@@ -87,19 +96,21 @@ function MainApplication() {
       />
 
       <main className="flex-1 w-full">
-        {activePublicTab === 'beranda' && (
-          <HomeView onSelectTab={handleSelectTab} onOpenNewsDetail={handleOpenNewsDetail} />
-        )}
-        {activePublicTab === 'tentang' && (
-          <AboutView onSelectTab={handleSelectTab} />
-        )}
-        {activePublicTab === 'identitas' && (
-          <IdentityView onSelectTab={handleSelectTab} />
-        )}
-        {activePublicTab === 'program' && <ProgramsView />}
-        {activePublicTab === 'informasi' && <NewsView />}
-        {activePublicTab === 'dokumentasi' && <DocumentationView />}
-        {activePublicTab === 'kontak' && <ContactView />}
+        <ErrorBoundary>
+          {activePublicTab === 'beranda' && (
+            <HomeView onSelectTab={handleSelectTab} onOpenNewsDetail={handleOpenNewsDetail} />
+          )}
+          {activePublicTab === 'tentang' && (
+            <AboutView onSelectTab={handleSelectTab} />
+          )}
+          {activePublicTab === 'identitas' && (
+            <IdentityView onSelectTab={handleSelectTab} />
+          )}
+          {activePublicTab === 'program' && <ProgramsView />}
+          {activePublicTab === 'informasi' && <NewsView />}
+          {activePublicTab === 'dokumentasi' && <DocumentationView />}
+          {activePublicTab === 'kontak' && <ContactView />}
+        </ErrorBoundary>
       </main>
 
       <Footer

@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
 import { useJatibarayaData } from '../../context/DataContext';
-import { JatibarayaLogo, JatibarayaOfficialEmblem } from '../../components/common/JatibarayaLogo';
+import { useMetaTags } from '../../hooks/useMetaTags';
+import { OptimizedImage } from '../../components/common/OptimizedImage';
+import { SkeletonCard } from '../../components/common/SkeletonCard';
+import { EmptyState } from '../../components/common/EmptyState';
 import {
   ArrowRight,
   BookOpen,
@@ -31,14 +34,17 @@ export const HomeView: React.FC<HomeViewProps> = ({
   onOpenNewsDetail,
   onOpenProgramDetail,
 }) => {
-  const { data } = useJatibarayaData();
+  const { data, cloudStatus } = useJatibarayaData();
   const { settings, stats, programs, news, articles, media, bahtsulMasail } = data;
 
-  const hasCustomLogo =
-    Boolean(settings.logoUrl) &&
-    !settings.logoUrl.endsWith('jatibaraya-logo.svg') &&
-    !settings.logoUrl.includes('assets/jatibaraya-logo.svg');
+  // Dynamic SEO & Title for Homepage
+  useMetaTags(
+    `${settings.name} — ${settings.fullName}`,
+    settings.description,
+    settings.logoUrl || '/assets/jatibaraya-logo.png'
+  );
 
+  const publishedProgramsCount = programs.filter((p) => p.published).length;
   const featuredPrograms = programs.filter((p) => p.published && p.featured).slice(0, 4);
   const latestNews = news.filter((n) => n.published).slice(0, 3);
   const latestArticles = articles.filter((a) => a.published).slice(0, 4);
@@ -52,6 +58,8 @@ export const HomeView: React.FC<HomeViewProps> = ({
     setShareTarget(item);
     setIsShareModalOpen(true);
   };
+
+  const isLoadingData = cloudStatus === 'connecting' && programs.length === 0 && news.length === 0;
 
   return (
     <div className="space-y-20 pb-20">
@@ -99,6 +107,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
               <div className="pt-4 flex flex-wrap items-center justify-center lg:justify-start gap-4">
                 <button
                   id="hero-btn-about"
+                  aria-label="Pelajari Tentang Jatibaraya"
                   onClick={() => onSelectTab('tentang')}
                   className="px-6 py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold text-sm shadow-md hover:shadow-lg transition-all flex items-center gap-2 cursor-pointer"
                 >
@@ -107,6 +116,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
                 </button>
                 <button
                   id="hero-btn-programs"
+                  aria-label="Lihat Program Unggulan Jatibaraya"
                   onClick={() => onSelectTab('program')}
                   className="px-6 py-3 rounded-xl bg-emerald-800/80 hover:bg-emerald-700/90 text-white font-semibold text-sm border border-emerald-600/50 shadow-xs hover:shadow-md transition-all flex items-center gap-2 cursor-pointer"
                 >
@@ -120,17 +130,18 @@ export const HomeView: React.FC<HomeViewProps> = ({
             <div className="lg:col-span-4 flex justify-center">
               <div className="relative p-6 sm:p-8 rounded-3xl bg-slate-900/80 border border-amber-400/30 backdrop-blur-md shadow-2xl flex flex-col items-center text-center space-y-4 max-w-xs">
                 <div className="p-3 rounded-2xl bg-gradient-to-b from-amber-400/15 via-sky-500/10 to-transparent border border-amber-400/40 flex items-center justify-center min-w-[100px] min-h-[100px]">
-                  <img
+                  <OptimizedImage
                     src={
                       settings.logoUrl && settings.logoUrl !== '/assets/jatibaraya-logo.svg'
                         ? settings.logoUrl
                         : '/assets/jatibaraya-logo.png'
                     }
                     alt={settings.name}
+                    fetchPriority="high"
+                    loading="eager"
+                    fallbackSrc="/assets/jatibaraya-logo.png"
                     className="w-24 h-24 sm:w-28 sm:h-28 object-contain rounded-2xl drop-shadow-md"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src = '/assets/jatibaraya-logo.png';
-                    }}
+                    containerClassName="w-24 h-24 sm:w-28 sm:h-28"
                   />
                 </div>
                 <div>
@@ -143,6 +154,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
                 </div>
                 <button
                   id="hero-view-symbol-btn"
+                  aria-label="Pelajari Filosofi Lambang Jatibaraya"
                   onClick={() => onSelectTab('identitas')}
                   className="w-full py-2 px-3 rounded-lg text-xs font-semibold text-amber-300 bg-emerald-900/80 hover:bg-emerald-800 border border-emerald-700/40 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
                 >
@@ -182,6 +194,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
             <div className="pt-2">
               <button
                 id="about-explore-btn"
+                aria-label="Baca Visi, Misi, Sifat dan Fungsi Selengkapnya"
                 onClick={() => onSelectTab('tentang')}
                 className="inline-flex items-center gap-2 text-emerald-800 font-semibold text-sm hover:text-emerald-950 transition-colors group cursor-pointer"
               >
@@ -204,7 +217,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
             </div>
 
             <div className="grid grid-cols-2 gap-4 pt-6">
-              {/* 1. Warga Santri - Emerald Green (Nafas Pesantren) */}
+              {/* 1. Warga Santri */}
               <div className="p-4 rounded-2xl bg-emerald-950/70 border border-emerald-500/30 text-center shadow-xs">
                 <span className="text-3xl font-extrabold text-emerald-400 font-mono block">
                   {stats.wargaCount || '—'}
@@ -212,7 +225,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
                 <span className="text-xs text-emerald-200 mt-1 block">Warga Santri</span>
               </div>
 
-              {/* 2. Alumni - Cerulean Sky Blue (Wawasan Global) */}
+              {/* 2. Alumni */}
               <div className="p-4 rounded-2xl bg-sky-950/70 border border-sky-500/30 text-center shadow-xs">
                 <span className="text-3xl font-extrabold text-sky-400 font-mono block">
                   {stats.alumniCount || '—'}
@@ -220,20 +233,20 @@ export const HomeView: React.FC<HomeViewProps> = ({
                 <span className="text-xs text-sky-200 mt-1 block">Alumni</span>
               </div>
 
-              {/* 3. Program Kerja - Amber Gold (Kujang Priangan) */}
+              {/* 3. Program Kerja */}
               <div className="p-4 rounded-2xl bg-amber-950/60 border border-amber-500/30 text-center shadow-xs">
                 <span className="text-3xl font-extrabold text-amber-400 font-mono block">
-                  {stats.programCount || programs.length || '—'}
+                  {stats.programCount || '—'}
                 </span>
                 <span className="text-xs text-amber-200 mt-1 block">Program Kerja</span>
               </div>
 
-              {/* 4. Kegiatan - Ruby Crimson (9 Bintang Walisongo) */}
-              <div className="p-4 rounded-2xl bg-rose-950/60 border border-rose-500/30 text-center shadow-xs">
-                <span className="text-3xl font-extrabold text-rose-400 font-mono block">
+              {/* 4. Agenda Kegiatan */}
+              <div className="p-4 rounded-2xl bg-slate-900/90 border border-slate-600/40 text-center shadow-xs">
+                <span className="text-3xl font-extrabold text-slate-200 font-mono block">
                   {stats.kegiatanCount || '—'}
                 </span>
-                <span className="text-xs text-rose-200 mt-1 block">Kegiatan</span>
+                <span className="text-xs text-slate-300 mt-1 block">Agenda Terlaksana</span>
               </div>
             </div>
 
@@ -262,56 +275,72 @@ export const HomeView: React.FC<HomeViewProps> = ({
             </div>
             <button
               id="view-all-programs-btn"
+              aria-label={`Buka seluruh ${publishedProgramsCount} program Jatibaraya`}
               onClick={() => onSelectTab('program')}
               className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold text-emerald-900 bg-white border border-emerald-200 shadow-xs hover:bg-emerald-50 transition-colors cursor-pointer self-start md:self-auto"
             >
-              <span>Semua Program (12)</span>
+              <span>Semua Program ({publishedProgramsCount})</span>
               <ArrowRight className="w-4 h-4" />
             </button>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {featuredPrograms.map((prog) => (
-              <div
-                key={prog.id}
-                className="bg-white rounded-2xl p-6 border border-slate-200 shadow-xs hover:shadow-md transition-all flex flex-col justify-between group"
-              >
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200">
-                      {prog.category}
-                    </span>
-                    <span className="text-[11px] text-slate-500 flex items-center gap-1">
-                      <Clock className="w-3 h-3 text-amber-600" />
-                      {prog.schedule.split('(')[0].trim()}
-                    </span>
+          {isLoadingData ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <SkeletonCard variant="card-program" count={4} />
+            </div>
+          ) : featuredPrograms.length === 0 ? (
+            <EmptyState
+              icon={<Layers className="w-6 h-6 text-emerald-800" />}
+              title="Belum Ada Program Unggulan"
+              description="Agenda kegiatan dan program kerja santri sedang dalam penataan oleh pengurus."
+              actionLabel="Lihat Semua Program"
+              onAction={() => onSelectTab('program')}
+            />
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              {featuredPrograms.map((prog) => (
+                <div
+                  key={prog.id}
+                  className="bg-white rounded-2xl p-6 border border-slate-200 shadow-xs hover:shadow-md transition-all flex flex-col justify-between group"
+                >
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200">
+                        {prog.category}
+                      </span>
+                      <span className="text-[11px] text-slate-500 flex items-center gap-1">
+                        <Clock className="w-3 h-3 text-amber-600" />
+                        {prog.schedule.split('(')[0].trim()}
+                      </span>
+                    </div>
+
+                    <h3 className="text-lg font-serif font-bold text-slate-900 group-hover:text-emerald-800 transition-colors">
+                      {prog.title}
+                    </h3>
+
+                    <p className="text-xs text-slate-600 leading-relaxed line-clamp-3">
+                      {prog.description}
+                    </p>
                   </div>
 
-                  <h3 className="text-lg font-serif font-bold text-slate-900 group-hover:text-emerald-800 transition-colors">
-                    {prog.title}
-                  </h3>
-
-                  <p className="text-xs text-slate-600 leading-relaxed line-clamp-3">
-                    {prog.description}
-                  </p>
+                  <div className="pt-5 mt-4 border-t border-slate-100 flex items-center justify-between">
+                    <span className="text-[11px] text-slate-400 font-medium">Prioritas Khidmah</span>
+                    <button
+                      aria-label={`Lihat detail program ${prog.title}`}
+                      onClick={() => {
+                        if (onOpenProgramDetail) onOpenProgramDetail(prog.id);
+                        else onSelectTab('program');
+                      }}
+                      className="text-xs font-semibold text-emerald-700 hover:text-emerald-950 flex items-center gap-1 cursor-pointer"
+                    >
+                      <span>Detail</span>
+                      <ChevronRight className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
-
-                <div className="pt-5 mt-4 border-t border-slate-100 flex items-center justify-between">
-                  <span className="text-[11px] text-slate-400 font-medium">Prioritas Khidmah</span>
-                  <button
-                    onClick={() => {
-                      if (onOpenProgramDetail) onOpenProgramDetail(prog.id);
-                      else onSelectTab('program');
-                    }}
-                    className="text-xs font-semibold text-emerald-700 hover:text-emerald-950 flex items-center gap-1 cursor-pointer"
-                  >
-                    <span>Detail</span>
-                    <ChevronRight className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       </section>
 
@@ -332,6 +361,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
           </div>
           <button
             id="view-all-info-btn"
+            aria-label="Buka arsip seluruh berita dan informasi"
             onClick={() => onSelectTab('informasi')}
             className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold text-emerald-900 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 transition-colors cursor-pointer self-start md:self-auto"
           >
@@ -346,10 +376,19 @@ export const HomeView: React.FC<HomeViewProps> = ({
             <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 font-mono">
               Berita Kegiatan Terkini
             </h3>
-            {latestNews.length === 0 ? (
-              <div className="p-8 rounded-2xl bg-slate-50 border border-slate-200 text-center text-slate-500 text-sm">
-                Belum ada berita yang dipublikasikan.
+
+            {isLoadingData ? (
+              <div className="space-y-4">
+                <SkeletonCard variant="card-berita" count={3} />
               </div>
+            ) : latestNews.length === 0 ? (
+              <EmptyState
+                icon={<BookOpen className="w-6 h-6 text-emerald-800" />}
+                title="Belum Ada Berita Terbaru"
+                description="Dokumentasi kabar kegiatan santri Priangan akan segera dipublikasikan di sini."
+                actionLabel="Buka Halaman Informasi"
+                onAction={() => onSelectTab('informasi')}
+              />
             ) : (
               latestNews.map((item) => (
                 <article
@@ -358,10 +397,12 @@ export const HomeView: React.FC<HomeViewProps> = ({
                 >
                   <div className="w-full sm:w-44 h-32 rounded-xl bg-slate-100 overflow-hidden flex-shrink-0 border border-slate-200">
                     {item.imageUrl ? (
-                      <img
+                      <OptimizedImage
                         src={item.imageUrl}
                         alt={item.title}
+                        loading="lazy"
                         className="w-full h-full object-cover"
+                        containerClassName="w-full h-full"
                       />
                     ) : (
                       <div className="w-full h-full bg-gradient-to-br from-emerald-900 to-slate-800 flex items-center justify-center p-3 text-center">
@@ -386,6 +427,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
                     </p>
                     <div className="flex items-center justify-between pt-2">
                       <button
+                        aria-label={`Baca selengkapnya berita ${item.title}`}
                         onClick={() => {
                           if (onOpenNewsDetail) onOpenNewsDetail(item.id);
                           else {
@@ -400,6 +442,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
                       </button>
 
                       <button
+                        aria-label={`Bagikan berita: ${item.title}`}
                         onClick={() =>
                           handleOpenShare({
                             id: item.id,
@@ -434,6 +477,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
               </h3>
               {articles.filter((a) => a.published).length > 0 && (
                 <button
+                  aria-label="Lihat seluruh artikel dan refleksi santri"
                   onClick={() => {
                     window.location.hash = 'informasi?tipe=artikel';
                     onSelectTab('informasi');
@@ -445,10 +489,13 @@ export const HomeView: React.FC<HomeViewProps> = ({
                 </button>
               )}
             </div>
+
             {latestArticles.length === 0 ? (
-              <div className="p-8 rounded-2xl bg-slate-50 border border-slate-200 text-center text-slate-500 text-sm">
-                Belum ada artikel yang dipublikasikan.
-              </div>
+              <EmptyState
+                icon={<BookOpen className="w-6 h-6 text-emerald-800" />}
+                title="Belum Ada Artikel Santri"
+                description="Tulisan reflektif dan artikel santri akan segera hadir di kolom ini."
+              />
             ) : (
               latestArticles.map((art) => (
                 <div
@@ -466,9 +513,12 @@ export const HomeView: React.FC<HomeViewProps> = ({
                     {art.summary}
                   </p>
                   <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs">
-                    <span className="text-slate-500">Oleh: <strong className="text-slate-700 font-medium">{art.author}</strong></span>
+                    <span className="text-slate-500">
+                      Oleh: <strong className="text-slate-700 font-medium">{art.author}</strong>
+                    </span>
                     <div className="flex items-center gap-2">
                       <button
+                        aria-label={`Bagikan artikel: ${art.title}`}
                         onClick={() =>
                           handleOpenShare({
                             id: art.id,
@@ -489,6 +539,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
                       </button>
 
                       <button
+                        aria-label={`Baca artikel: ${art.title}`}
                         onClick={() => {
                           window.location.hash = `informasi?tipe=artikel&id=${encodeURIComponent(art.id)}`;
                           onSelectTab('informasi');
@@ -509,7 +560,6 @@ export const HomeView: React.FC<HomeViewProps> = ({
       {/* 5B. HASIL BAHTSUL MASAIL HIGHLIGHT */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="bg-gradient-to-br from-slate-900 via-emerald-950 to-slate-950 rounded-3xl p-6 sm:p-10 border border-emerald-800/50 shadow-xl relative overflow-hidden">
-          {/* Subtle Islamic Motif / Watermark effect */}
           <div className="absolute -right-12 -top-12 w-64 h-64 bg-emerald-600/10 rounded-full blur-3xl pointer-events-none" />
           <div className="absolute -left-12 -bottom-12 w-64 h-64 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
 
@@ -527,6 +577,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
               </p>
             </div>
             <button
+              aria-label="Buka semua keputusan Bahtsul Masail Jatibaraya"
               onClick={() => {
                 window.location.hash = 'informasi?tipe=bahtsul';
                 onSelectTab('informasi');
@@ -590,6 +641,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
                     </span>
 
                     <button
+                      aria-label={`Lihat ta'bir keputusan: ${b.title}`}
                       onClick={() => {
                         window.location.hash = `informasi?tipe=bahtsul&id=${encodeURIComponent(b.id)}`;
                         onSelectTab('informasi');
@@ -625,6 +677,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
           </div>
           <button
             id="view-gallery-btn"
+            aria-label="Buka galeri lengkap dokumentasi foto kegiatan"
             onClick={() => onSelectTab('dokumentasi')}
             className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold text-emerald-900 bg-slate-100 hover:bg-slate-200 transition-colors cursor-pointer"
           >
@@ -633,31 +686,41 @@ export const HomeView: React.FC<HomeViewProps> = ({
           </button>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-          {highlightMedia.map((m) => (
-            <div
-              key={m.id}
-              className="group relative h-64 rounded-2xl overflow-hidden bg-slate-900 shadow-sm border border-slate-200"
-            >
-              <img
-                src={m.imageUrl}
-                alt={m.title}
-                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-transparent opacity-90 p-5 flex flex-col justify-end">
-                <span className="text-[10px] uppercase font-bold tracking-wider text-amber-400 font-mono">
-                  {m.category}
-                </span>
-                <h4 className="text-sm font-serif font-bold text-white leading-snug mt-1">
-                  {m.title}
-                </h4>
-                <p className="text-[11px] text-slate-300 line-clamp-1 mt-0.5">
-                  {m.caption}
-                </p>
+        {highlightMedia.length === 0 ? (
+          <EmptyState
+            icon={<Sparkles className="w-6 h-6 text-emerald-800" />}
+            title="Galeri Belum Terisi"
+            description="Dokumentasi foto kegiatan akan ditampilkan di sini."
+          />
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+            {highlightMedia.map((m) => (
+              <div
+                key={m.id}
+                className="group relative h-64 rounded-2xl overflow-hidden bg-slate-900 shadow-sm border border-slate-200"
+              >
+                <OptimizedImage
+                  src={m.imageUrl}
+                  alt={m.title}
+                  loading="lazy"
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                  containerClassName="w-full h-full"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-transparent opacity-90 p-5 flex flex-col justify-end pointer-events-none">
+                  <span className="text-[10px] uppercase font-bold tracking-wider text-amber-400 font-mono">
+                    {m.category}
+                  </span>
+                  <h4 className="text-sm font-serif font-bold text-white leading-snug mt-1">
+                    {m.title}
+                  </h4>
+                  <p className="text-[11px] text-slate-300 line-clamp-1 mt-0.5">
+                    {m.caption}
+                  </p>
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </section>
 
       {/* 7. CALL TO ACTION SECTION */}
@@ -677,6 +740,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
             <div className="pt-2 flex flex-wrap justify-center gap-4">
               <button
                 id="cta-contact-btn"
+                aria-label="Hubungi Pengurus Jatibaraya"
                 onClick={() => onSelectTab('kontak')}
                 className="px-6 py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold text-sm shadow-md transition-all cursor-pointer"
               >
@@ -684,6 +748,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
               </button>
               <button
                 id="cta-programs-btn"
+                aria-label="Lihat Agenda Kegiatan Jatibaraya"
                 onClick={() => onSelectTab('program')}
                 className="px-6 py-3 rounded-xl bg-emerald-800/80 hover:bg-emerald-700 text-white font-semibold text-sm border border-emerald-600/40 transition-all cursor-pointer"
               >

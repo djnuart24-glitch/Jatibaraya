@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useJatibarayaData } from '../../context/DataContext';
+import { useMetaTags } from '../../hooks/useMetaTags';
 import { ProgramItem } from '../../types';
 import {
   Clock,
@@ -14,7 +15,13 @@ import {
 
 export const ProgramsView: React.FC = () => {
   const { data } = useJatibarayaData();
-  const { programs } = data;
+  const { programs, settings } = data;
+
+  useMetaTags(
+    `Program Kerja & Kegiatan — ${settings.name}`,
+    `Daftar agenda dan program khidmah santri Priangan: kegiatan spiritual, keilmuan, pelayanan rombongan santri, dan kemasyarakatan.`,
+    settings.logoUrl || '/assets/jatibaraya-logo.png'
+  );
 
   const [selectedCategory, setSelectedCategory] = useState<string>('Semua');
   const [searchQuery, setSearchQuery] = useState<string>('');

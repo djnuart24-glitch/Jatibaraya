@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useJatibarayaData } from '../../context/DataContext';
+import { useMetaTags } from '../../hooks/useMetaTags';
 import { NewsItem, ArticleItem, AnnouncementItem, BahtsulMasailItem } from '../../types';
 import {
   BookOpen,
@@ -20,13 +21,28 @@ import { ShareableItem } from '../../utils/shareUtils';
 
 export const NewsView: React.FC = () => {
   const { data } = useJatibarayaData();
-  const { news, articles, announcements, bahtsulMasail } = data;
+  const { news, articles, announcements, bahtsulMasail, settings } = data;
 
   const [activeTab, setActiveTab] = useState<'berita' | 'artikel' | 'bahtsul' | 'pengumuman'>('berita');
   const [searchQuery, setSearchQuery] = useState('');
   const [activeNewsModal, setActiveNewsModal] = useState<NewsItem | null>(null);
   const [activeArticleModal, setActiveArticleModal] = useState<ArticleItem | null>(null);
   const [activeBahtsulModal, setActiveBahtsulModal] = useState<BahtsulMasailItem | null>(null);
+
+  const tabTitle =
+    activeTab === 'berita'
+      ? `Warta Berita Terkini — ${settings.name}`
+      : activeTab === 'artikel'
+      ? `Artikel & Refleksi Santri — ${settings.name}`
+      : activeTab === 'bahtsul'
+      ? `Hasil Bahtsul Masail Fiqhiyyah — ${settings.name}`
+      : `Pengumuman Resmi — ${settings.name}`;
+
+  useMetaTags(
+    tabTitle,
+    `Portal warta kegiatan, artikel reflektif, keputusan bahtsul masail fiqhiyyah, dan maklumat resmi ${settings.fullName || settings.name}.`,
+    settings.logoUrl || '/assets/jatibaraya-logo.png'
+  );
 
   // Share Modal State
   const [shareTarget, setShareTarget] = useState<ShareableItem | null>(null);

@@ -1,5 +1,6 @@
 import React from 'react';
 import { useJatibarayaData } from '../../context/DataContext';
+import { useMetaTags } from '../../hooks/useMetaTags';
 import { JatibarayaLogo } from '../../components/common/JatibarayaLogo';
 import {
   Sparkles,
@@ -24,6 +25,12 @@ interface IdentityViewProps {
 export const IdentityView: React.FC<IdentityViewProps> = ({ onSelectTab }) => {
   const { data } = useJatibarayaData();
   const { settings, symbols } = data;
+
+  useMetaTags(
+    `Identitas & Filosofi Lambang — ${settings.name}`,
+    `Makna filosofis lambang resmi ${settings.name}: Globe Biru, Kujang Pasundan, Tiga Kitab Kuning, Sembilan Bintang, dan Pita Hijau.`,
+    settings.logoUrl || '/assets/jatibaraya-logo.png'
+  );
 
   // Metadata mapping for icons and colors corresponding to the 6 official elements
   const metaMap: Record<
