@@ -332,6 +332,17 @@ export const AdminDashboardOverview: React.FC<OverviewProps> = ({
             <span className="text-xs font-bold text-emerald-950 block">Upload Dokumentasi Foto</span>
             <span className="text-[11px] text-slate-500 block">Tambahkan foto kegiatan galeri santri dan safari dakwah.</span>
           </button>
+
+          <button
+            onClick={() => onSelectSection('admin-users')}
+            className="p-4 rounded-2xl bg-amber-50/80 hover:bg-amber-100/70 border border-amber-300 transition-all text-left space-y-1 cursor-pointer"
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-amber-950 block">Kelola Akses Admin Gmail</span>
+              <Users className="w-4 h-4 text-amber-700" />
+            </div>
+            <span className="text-[11px] text-amber-900 block">Daftarkan akun Gmail pengurus yang diajukan oleh Admin Utama.</span>
+          </button>
         </div>
       </div>
 

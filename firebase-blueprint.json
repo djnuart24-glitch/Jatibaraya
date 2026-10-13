@@ -57,6 +57,17 @@
         "recentVisits": { "type": "array" },
         "lastUpdated": { "type": "string" }
       }
+    },
+    "authorizedAdmins": {
+      "title": "AuthorizedAdmins",
+      "description": "List of authorized Gmail admin accounts whitelist approved by primary admin jatibaraya1910@gmail.com",
+      "type": "object",
+      "properties": {
+        "primaryAdmin": { "type": "string" },
+        "admins": { "type": "array" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["primaryAdmin", "admins"]
     }
   },
   "firestore": {
@@ -75,6 +86,10 @@
     "/content/analytics": {
       "schema": "visitorAnalytics",
       "description": "Stores real-time visitor tracking and web traffic analytics"
+    },
+    "/content/authorized_admins": {
+      "schema": "authorizedAdmins",
+      "description": "Stores authorized Gmail admin accounts list approved by primary admin"
     }
   }
 }

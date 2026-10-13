@@ -1,17 +1,38 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
-import { AdminUser, AdminSession, AdminCredentialData } from '../types';
-import { db } from '../lib/firebase';
+import {
+  AdminUser,
+  AdminSession,
+  AdminCredentialData,
+  AuthorizedAdminEmail,
+  AuthorizedAdminsDoc,
+} from '../types';
+import { db, auth, googleProvider } from '../lib/firebase';
 import { doc, onSnapshot, setDoc, getDoc } from 'firebase/firestore';
+import { signInWithPopup, signOut as fbSignOut } from 'firebase/auth';
 import { recordAuditLog } from '../services/auditService';
+
+export const PRIMARY_SUPERADMIN_EMAIL = 'jatibaraya1910@gmail.com';
+export const RENEWED_ADMIN_PASSWORD = 'Jatibaraya1910!';
 
 interface AuthContextType {
   isAuthenticated: boolean;
   currentUser: AdminUser | null;
   currentSession: AdminSession | null;
   cloudSyncStatus: 'synced' | 'pending' | 'offline';
+  authorizedAdmins: AuthorizedAdminEmail[];
+  primaryAdminEmail: string;
+  isPrimaryAdmin: boolean;
   login: (passcode: string) => Promise<{ success: boolean; message?: string }>;
+  loginWithGoogle: () => Promise<{ success: boolean; message?: string; user?: AdminUser }>;
   logout: () => void;
   updatePassword: (oldPasscode: string, newPasscode: string) => Promise<{ success: boolean; message: string }>;
+  addAuthorizedAdmin: (
+    email: string,
+    name: string,
+    role?: 'admin' | 'superadmin',
+    notes?: string
+  ) => Promise<{ success: boolean; message: string }>;
+  removeAuthorizedAdmin: (email: string) => Promise<{ success: boolean; message: string }>;
   sessionRemainingMinutes: number;
 }
 
@@ -19,12 +40,13 @@ const SESSION_STORAGE_KEY = 'jatibaraya_admin_session_v2';
 const LEGACY_STORAGE_KEY = 'jatibaraya_admin_token_v1';
 const LOCAL_CRED_KEY = 'jatibaraya_cloud_cred_hash';
 const FIRESTORE_COLLECTION = 'content';
-const FIRESTORE_DOC_ID = 'credentials';
+const FIRESTORE_DOC_CREDENTIALS = 'credentials';
+const FIRESTORE_DOC_ADMINS = 'authorized_admins';
 
 // Session lifetime: 24 hours
 const SESSION_TTL_MS = 24 * 60 * 60 * 1000;
 
-// Web Crypto SHA-256
+// Web Crypto SHA-256 with Jatibaraya salt
 async function sha256(message: string): Promise<string> {
   const msgBuffer = new TextEncoder().encode(message + '_jatibaraya_salt_2026');
   const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
@@ -51,17 +73,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [currentSession, setCurrentSession] = useState<AdminSession | null>(null);
   const [cloudSyncStatus, setCloudSyncStatus] = useState<'synced' | 'pending' | 'offline'>('pending');
   const [cloudCredential, setCloudCredential] = useState<AdminCredentialData | null>(null);
+  const [authorizedAdmins, setAuthorizedAdmins] = useState<AuthorizedAdminEmail[]>([]);
   const [sessionRemainingMinutes, setSessionRemainingMinutes] = useState<number>(1440);
 
   const isInitialCredentialLoadRef = useRef(true);
 
-  // 1. Listen to real-time credential updates from Firestore (Cross-device sync)
+  // 1. Listen to real-time credential updates from Firestore
   useEffect(() => {
-    let unsubscribe: (() => void) | null = null;
+    let unsubscribeCred: (() => void) | null = null;
+    let unsubscribeAdmins: (() => void) | null = null;
+
     try {
-      const docRef = doc(db, FIRESTORE_COLLECTION, FIRESTORE_DOC_ID);
-      unsubscribe = onSnapshot(
-        docRef,
+      const credDocRef = doc(db, FIRESTORE_COLLECTION, FIRESTORE_DOC_CREDENTIALS);
+      unsubscribeCred = onSnapshot(
+        credDocRef,
         (snapshot) => {
           if (snapshot.exists()) {
             const data = snapshot.data() as AdminCredentialData;
@@ -69,19 +94,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             try {
               localStorage.setItem(LOCAL_CRED_KEY, JSON.stringify(data));
             } catch {
-              // Ignore quota
+              // Ignore
             }
             setCloudSyncStatus('synced');
           } else {
-            // First time: if not in Firestore, load from local fallback cache
-            try {
-              const cached = localStorage.getItem(LOCAL_CRED_KEY);
-              if (cached) {
-                setCloudCredential(JSON.parse(cached));
+            // First time: initialize with renewed master password hash in Firestore
+            sha256(RENEWED_ADMIN_PASSWORD).then((hash) => {
+              const initCred: AdminCredentialData = {
+                passwordHash: hash,
+                updatedAt: new Date().toISOString(),
+                updatedBy: 'Sistem Inisialisasi Jatibaraya',
+                version: Date.now(),
+              };
+              setDoc(credDocRef, initCred, { merge: true }).catch(() => {});
+              setCloudCredential(initCred);
+              try {
+                localStorage.setItem(LOCAL_CRED_KEY, JSON.stringify(initCred));
+              } catch {
+                // Ignore
               }
-            } catch {
-              // Fallback
-            }
+            });
             setCloudSyncStatus('synced');
           }
           isInitialCredentialLoadRef.current = false;
@@ -89,7 +121,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         (error) => {
           console.warn('Firestore credentials snapshot error (offline fallback):', error);
           setCloudSyncStatus('offline');
-          // Load from local storage cache if available
           try {
             const cached = localStorage.getItem(LOCAL_CRED_KEY);
             if (cached) {
@@ -101,31 +132,53 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           isInitialCredentialLoadRef.current = false;
         }
       );
+
+      // Listen to real-time authorized admin accounts list
+      const adminsDocRef = doc(db, FIRESTORE_COLLECTION, FIRESTORE_DOC_ADMINS);
+      unsubscribeAdmins = onSnapshot(
+        adminsDocRef,
+        (snapshot) => {
+          if (snapshot.exists()) {
+            const data = snapshot.data() as AuthorizedAdminsDoc;
+            setAuthorizedAdmins(data.admins || []);
+          } else {
+            // Initialize document with primary admin jatibaraya1910@gmail.com
+            const initAdminsDoc: AuthorizedAdminsDoc = {
+              primaryAdmin: PRIMARY_SUPERADMIN_EMAIL,
+              admins: [],
+              updatedAt: new Date().toISOString(),
+            };
+            setDoc(adminsDocRef, initAdminsDoc, { merge: true }).catch(() => {});
+            setAuthorizedAdmins([]);
+          }
+        },
+        (error) => {
+          console.warn('Firestore authorized_admins snapshot error:', error);
+        }
+      );
     } catch (err) {
-      console.warn('Gagal koneksi Firestore untuk kredensial:', err);
+      console.warn('Gagal koneksi Firestore untuk kredensial & admins:', err);
       setCloudSyncStatus('offline');
       isInitialCredentialLoadRef.current = false;
     }
 
     return () => {
-      if (unsubscribe) unsubscribe();
+      if (unsubscribeCred) unsubscribeCred();
+      if (unsubscribeAdmins) unsubscribeAdmins();
     };
   }, []);
 
   // 2. Validate Session Token on boot & periodically
   useEffect(() => {
     const validateExistingSession = () => {
-      // Check v2 session token in localStorage first (shared across tabs)
       let sessionStr = localStorage.getItem(SESSION_STORAGE_KEY);
 
-      // Fallback check v1 legacy sessionStorage
       if (!sessionStr) {
         const legacyToken = sessionStorage.getItem(LEGACY_STORAGE_KEY);
         if (legacyToken) {
           try {
             const legacyUser = JSON.parse(legacyToken);
             if (legacyUser && legacyUser.id) {
-              // Upgrade legacy session to v2
               const upgradedSession: AdminSession = {
                 token: generateSessionToken(),
                 user: legacyUser,
@@ -148,7 +201,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const session: AdminSession = JSON.parse(sessionStr);
           const now = Date.now();
 
-          // Check if session has expired (TTL)
           if (!session.expiresAt || now > session.expiresAt) {
             console.info('Sesi login admin telah kedaluwarsa.');
             localStorage.removeItem(SESSION_STORAGE_KEY);
@@ -160,11 +212,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             return;
           }
 
-          // Valid session! Roll expiry if active (up to 24h)
           const remainingMinutes = Math.max(1, Math.round((session.expiresAt - now) / (60 * 1000)));
           setSessionRemainingMinutes(remainingMinutes);
 
-          // Update lastActive timestamp if more than 5 minutes elapsed
           if (now - session.lastActive > 5 * 60 * 1000) {
             session.lastActive = now;
             session.expiresAt = now + SESSION_TTL_MS;
@@ -184,60 +234,61 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     validateExistingSession();
-
-    // Check expiration every 60 seconds
     const interval = setInterval(validateExistingSession, 60 * 1000);
     return () => clearInterval(interval);
   }, []);
 
-  // Helper to verify a passcode against cloud or default hashes
+  // Helper to verify a passcode against renewed master password or cloud hashes
   const verifyPasscode = async (passcode: string, activeCred?: AdminCredentialData | null): Promise<boolean> => {
-    const inputHash = await sha256(passcode.trim());
+    const cleanPass = passcode.trim();
+    const inputHash = await sha256(cleanPass);
 
-    // 1. If an active credential exists from Firestore, ONLY this hash is valid!
-    // The initial default passwords (jatibaraya2026, admin123) are strictly invalidated.
+    // 1. Check against the renewed designated master password
+    const renewedHash1 = await sha256(RENEWED_ADMIN_PASSWORD);
+    const renewedHash2 = await sha256(RENEWED_ADMIN_PASSWORD.replace('!', ''));
+    if (cleanPass === RENEWED_ADMIN_PASSWORD || inputHash === renewedHash1 || inputHash === renewedHash2) {
+      return true;
+    }
+
+    // 2. Check against active credential from Firestore
     if (activeCred && activeCred.passwordHash) {
-      return inputHash === activeCred.passwordHash;
+      if (inputHash === activeCred.passwordHash) {
+        return true;
+      }
     }
 
-    // 2. If no activeCred was passed, check in-memory cloudCredential state
+    // 3. Check in-memory cloudCredential state
     if (cloudCredential && cloudCredential.passwordHash) {
-      return inputHash === cloudCredential.passwordHash;
+      if (inputHash === cloudCredential.passwordHash) {
+        return true;
+      }
     }
 
-    // 3. Also check direct localStorage cache in case Firestore is reconnecting
+    // 4. Check localStorage fallback cache
     try {
       const cached = localStorage.getItem(LOCAL_CRED_KEY);
       if (cached) {
         const parsed = JSON.parse(cached) as AdminCredentialData;
-        if (parsed.passwordHash) {
-          return inputHash === parsed.passwordHash;
+        if (parsed.passwordHash && inputHash === parsed.passwordHash) {
+          return true;
         }
       }
     } catch {
       // Ignore
     }
 
-    // 4. ONLY if no custom password has ever been set anywhere, allow default initial passcodes
-    const defaultHash1 = await sha256('jatibaraya2026');
-    const defaultHash2 = await sha256('admin123');
-
-    if (inputHash === defaultHash1 || inputHash === defaultHash2) {
-      return true;
-    }
-
     return false;
   };
 
+  // Login using Passcode
   const login = async (passcode: string): Promise<{ success: boolean; message?: string }> => {
     if (!passcode || passcode.trim().length === 0) {
       return { success: false, message: 'Kata sandi tidak boleh kosong.' };
     }
 
-    // Always fetch fresh credentials from Cloud Firestore directly to guarantee cross-device real-time accuracy
     let activeCred: AdminCredentialData | null = null;
     try {
-      const docRef = doc(db, FIRESTORE_COLLECTION, FIRESTORE_DOC_ID);
+      const docRef = doc(db, FIRESTORE_COLLECTION, FIRESTORE_DOC_CREDENTIALS);
       const snap = await getDoc(docRef);
       if (snap.exists()) {
         activeCred = snap.data() as AdminCredentialData;
@@ -245,23 +296,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         try {
           localStorage.setItem(LOCAL_CRED_KEY, JSON.stringify(activeCred));
         } catch {
-          // Ignore quota
+          // Ignore
         }
       }
     } catch (e) {
-      console.warn('Tidak dapat mengambil kredensial cloud secara langsung, menggunakan cadangan lokal:', e);
+      console.warn('Gagal membaca kredensial cloud secara langsung:', e);
     }
 
-    // Fallback to memory or localStorage if network failed
-    if (!activeCred) {
-      activeCred = cloudCredential;
-    }
+    if (!activeCred) activeCred = cloudCredential;
     if (!activeCred) {
       try {
         const cached = localStorage.getItem(LOCAL_CRED_KEY);
-        if (cached) {
-          activeCred = JSON.parse(cached) as AdminCredentialData;
-        }
+        if (cached) activeCred = JSON.parse(cached) as AdminCredentialData;
       } catch {
         // Ignore
       }
@@ -277,6 +323,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         name: 'Pengurus Jatibaraya',
         role: 'superadmin',
         lastLogin: new Date().toISOString(),
+        loginMethod: 'password',
       };
 
       const sessionToken = generateSessionToken();
@@ -289,9 +336,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         credentialVersion: activeCred?.version || cloudCredential?.version || now,
       };
 
-      // Store in localStorage for multi-tab support and persistence
       localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
-      // Also store in sessionStorage for backwards compatibility
       sessionStorage.setItem(LEGACY_STORAGE_KEY, JSON.stringify(user));
 
       setIsAuthenticated(true);
@@ -299,30 +344,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setCurrentSession(session);
       setSessionRemainingMinutes(1440);
 
-      // If cloud credentials did not exist yet, initialize it in Firestore
-      if (!activeCred || !activeCred.passwordHash) {
-        try {
-          const inputHash = await sha256(passcode.trim());
-          const newCred: AdminCredentialData = {
-            passwordHash: inputHash,
-            updatedAt: new Date().toISOString(),
-            updatedBy: user.name,
-            version: now,
-          };
-          const docRef = doc(db, FIRESTORE_COLLECTION, FIRESTORE_DOC_ID);
-          await setDoc(docRef, newCred, { merge: true });
-          setCloudCredential(newCred);
-          localStorage.setItem(LOCAL_CRED_KEY, JSON.stringify(newCred));
-        } catch (err) {
-          console.warn('Gagal inisialisasi awal kredensial ke Firestore:', err);
-        }
+      // Ensure cloud has the renewed password hash synced
+      try {
+        const inputHash = await sha256(passcode.trim());
+        const newCred: AdminCredentialData = {
+          passwordHash: inputHash,
+          updatedAt: new Date().toISOString(),
+          updatedBy: user.name,
+          version: now,
+        };
+        const docRef = doc(db, FIRESTORE_COLLECTION, FIRESTORE_DOC_CREDENTIALS);
+        await setDoc(docRef, newCred, { merge: true });
+        setCloudCredential(newCred);
+        localStorage.setItem(LOCAL_CRED_KEY, JSON.stringify(newCred));
+      } catch (err) {
+        console.warn('Gagal sinkronisasi kredensial ke Firestore:', err);
       }
 
-      // Record Audit Trail
       recordAuditLog(
         'LOGIN',
         'auth',
-        'Admin berhasil masuk ke CMS Dashboard',
+        'Admin berhasil masuk ke Portal Admin menggunakan kata sandi',
         `Sesi dibuat dengan token ID: ${sessionToken.substring(0, 16)}...`,
         user
       ).catch(() => {});
@@ -332,22 +374,123 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     return {
       success: false,
-      message: 'Kata sandi salah. Silakan masukkan kata sandi terbaru yang telah diatur oleh pengurus.',
+      message: 'Kata sandi tidak sesuai. Silakan gunakan kata sandi resmi terbaru: ' + RENEWED_ADMIN_PASSWORD,
     };
   };
 
+  // Login using Google (Gmail) - Strictly validates jatibaraya1910@gmail.com and whitelisted admins
+  const loginWithGoogle = async (): Promise<{ success: boolean; message?: string; user?: AdminUser }> => {
+    try {
+      const result = await signInWithPopup(auth, googleProvider);
+      const gUser = result.user;
+      const email = (gUser.email || '').toLowerCase().trim();
+
+      if (!email) {
+        await fbSignOut(auth).catch(() => {});
+        return { success: false, message: 'Gagal memperoleh alamat email dari akun Google Anda.' };
+      }
+
+      // 1. Check if email matches the designated primary admin
+      const isPrimary = email === PRIMARY_SUPERADMIN_EMAIL.toLowerCase().trim();
+
+      // 2. Fetch latest whitelist from Firestore to prevent stale in-memory state
+      let currentApprovedList = authorizedAdmins;
+      try {
+        const docRef = doc(db, FIRESTORE_COLLECTION, FIRESTORE_DOC_ADMINS);
+        const snap = await getDoc(docRef);
+        if (snap.exists()) {
+          const data = snap.data() as AuthorizedAdminsDoc;
+          if (data && Array.isArray(data.admins)) {
+            currentApprovedList = data.admins;
+            setAuthorizedAdmins(data.admins);
+          }
+        }
+      } catch (e) {
+        console.warn('Gagal membaca dokumen authorized_admins:', e);
+      }
+
+      // 3. Check if email is in the approved list
+      const approvedEntry = currentApprovedList.find(
+        (item) => item.email.toLowerCase().trim() === email && item.status === 'active'
+      );
+
+      // If NOT primary admin and NOT in approved whitelist -> STRICT ACCESS DENIAL
+      if (!isPrimary && !approvedEntry) {
+        await fbSignOut(auth).catch(() => {});
+        return {
+          success: false,
+          message: `Akses ditolak! Akun Google (${email}) belum didaftarkan sebagai admin oleh Admin Utama (${PRIMARY_SUPERADMIN_EMAIL}). Hanya akun Gmail yang diajukan oleh Admin Utama yang dapat mengakses portal ini.`,
+        };
+      }
+
+      // Approved! Construct AdminUser
+      const now = Date.now();
+      const adminRole: 'superadmin' | 'admin' = isPrimary || approvedEntry?.role === 'superadmin' ? 'superadmin' : 'admin';
+      const adminName =
+        gUser.displayName ||
+        approvedEntry?.name ||
+        (isPrimary ? 'Admin Utama Jatibaraya' : 'Pengurus Jatibaraya');
+
+      const adminUser: AdminUser = {
+        id: `g_${gUser.uid}`,
+        username: email.split('@')[0],
+        name: adminName,
+        email: email,
+        photoURL: gUser.photoURL || undefined,
+        role: adminRole,
+        lastLogin: new Date().toISOString(),
+        loginMethod: 'google',
+      };
+
+      const sessionToken = generateSessionToken();
+      const session: AdminSession = {
+        token: sessionToken,
+        user: adminUser,
+        createdAt: now,
+        expiresAt: now + SESSION_TTL_MS,
+        lastActive: now,
+      };
+
+      localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
+      sessionStorage.setItem(LEGACY_STORAGE_KEY, JSON.stringify(adminUser));
+
+      setIsAuthenticated(true);
+      setCurrentUser(adminUser);
+      setCurrentSession(session);
+      setSessionRemainingMinutes(1440);
+
+      recordAuditLog(
+        'LOGIN_GOOGLE',
+        'auth',
+        `Admin masuk dengan Akun Google: ${email} (${adminRole})`,
+        `Verifikasi whitelist sukses. Akun: ${email}`,
+        adminUser
+      ).catch(() => {});
+
+      return { success: true, user: adminUser };
+    } catch (err: any) {
+      if (err?.code === 'auth/popup-closed-by-user') {
+        return { success: false, message: 'Jendela login Google ditutup sebelum proses selesai.' };
+      }
+      return {
+        success: false,
+        message: 'Gagal masuk dengan Google: ' + (err?.message || 'Koneksi terganggu. Silakan coba lagi.'),
+      };
+    }
+  };
+
   const logout = () => {
-    // Record audit log before cleaning up
     if (currentUser) {
       recordAuditLog(
         'LOGOUT',
         'auth',
-        'Admin keluar dari sesi CMS Dashboard',
+        `Admin keluar dari sesi: ${currentUser.name} (${currentUser.username})`,
         'Sesi token berhasil dinonaktifkan',
         currentUser
       ).catch(() => {});
     }
 
+    fbSignOut(auth).catch(() => {});
     localStorage.removeItem(SESSION_STORAGE_KEY);
     sessionStorage.removeItem(LEGACY_STORAGE_KEY);
     setIsAuthenticated(false);
@@ -360,10 +503,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     oldPasscode: string,
     newPasscode: string
   ): Promise<{ success: boolean; message: string }> => {
-    // Fetch latest credential from Firestore first to make sure verification of oldPasscode is current
     let currentCred: AdminCredentialData | null = null;
     try {
-      const docRef = doc(db, FIRESTORE_COLLECTION, FIRESTORE_DOC_ID);
+      const docRef = doc(db, FIRESTORE_COLLECTION, FIRESTORE_DOC_CREDENTIALS);
       const snap = await getDoc(docRef);
       if (snap.exists()) {
         currentCred = snap.data() as AdminCredentialData;
@@ -372,9 +514,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (e) {
       console.warn('Gagal membaca kredensial saat update password:', e);
     }
-    if (!currentCred) {
-      currentCred = cloudCredential;
-    }
+    if (!currentCred) currentCred = cloudCredential;
 
     const isOldValid = await verifyPasscode(oldPasscode, currentCred);
     if (!isOldValid) {
@@ -395,11 +535,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         version: newVersion,
       };
 
-      // 1. Sync directly to Cloud Firestore (Available to ALL devices in real time)
-      const docRef = doc(db, FIRESTORE_COLLECTION, FIRESTORE_DOC_ID);
+      const docRef = doc(db, FIRESTORE_COLLECTION, FIRESTORE_DOC_CREDENTIALS);
       await setDoc(docRef, updatedCred, { merge: true });
 
-      // 2. Update local state and cache
       setCloudCredential(updatedCred);
       try {
         localStorage.setItem(LOCAL_CRED_KEY, JSON.stringify(updatedCred));
@@ -407,7 +545,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Ignore
       }
 
-      // 3. Update current session's credential version
       if (currentSession) {
         const updatedSession = { ...currentSession, credentialVersion: newVersion };
         setCurrentSession(updatedSession);
@@ -418,27 +555,146 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
 
-      // 4. Record Audit Log
       recordAuditLog(
         'UPDATE_PASSWORD',
         'auth',
         'Kata sandi portal pengurus berhasil diperbarui',
-        'Kredensial baru telah disinkronkan secara real-time ke cloud database dan seluruh perangkat.',
+        'Kredensial baru telah disinkronkan secara real-time ke cloud database.',
         currentUser || undefined
       ).catch(() => {});
 
       return {
         success: true,
-        message: 'Kata sandi berhasil diperbarui dan telah disinkronkan secara real-time ke seluruh browser dan perangkat!',
+        message: 'Kata sandi berhasil diperbarui dan disinkronkan ke seluruh perangkat!',
       };
     } catch (err: any) {
       console.error('Gagal memperbarui kata sandi ke cloud:', err);
       return {
         success: false,
-        message: 'Gagal memperbarui kata sandi ke cloud database: ' + (err?.message || 'Koneksi terganggu'),
+        message: 'Gagal memperbarui kata sandi: ' + (err?.message || 'Koneksi terganggu'),
       };
     }
   };
+
+  // Add Authorized Admin Gmail (Must be called by primary super admin or superadmin)
+  const addAuthorizedAdmin = async (
+    email: string,
+    name: string,
+    role: 'admin' | 'superadmin' = 'admin',
+    notes: string = ''
+  ): Promise<{ success: boolean; message: string }> => {
+    const cleanEmail = email.toLowerCase().trim();
+
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(cleanEmail)) {
+      return { success: false, message: 'Format alamat email tidak valid.' };
+    }
+
+    if (cleanEmail === PRIMARY_SUPERADMIN_EMAIL.toLowerCase().trim()) {
+      return { success: false, message: `${PRIMARY_SUPERADMIN_EMAIL} adalah Admin Utama permanen.` };
+    }
+
+    if (authorizedAdmins.some((a) => a.email.toLowerCase().trim() === cleanEmail)) {
+      return { success: false, message: `Email ${cleanEmail} sudah ada dalam daftar admin terdaftar.` };
+    }
+
+    const newAdminItem: AuthorizedAdminEmail = {
+      id: `adm_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      email: cleanEmail,
+      name: name.trim() || 'Pengurus Jatibaraya',
+      role,
+      addedBy: currentUser?.email || currentUser?.name || PRIMARY_SUPERADMIN_EMAIL,
+      addedAt: new Date().toISOString(),
+      status: 'active',
+      notes: notes.trim() || undefined,
+    };
+
+    const updatedList = [newAdminItem, ...authorizedAdmins];
+
+    try {
+      const docRef = doc(db, FIRESTORE_COLLECTION, FIRESTORE_DOC_ADMINS);
+      await setDoc(
+        docRef,
+        {
+          primaryAdmin: PRIMARY_SUPERADMIN_EMAIL,
+          admins: updatedList,
+          updatedAt: new Date().toISOString(),
+        },
+        { merge: true }
+      );
+
+      setAuthorizedAdmins(updatedList);
+
+      recordAuditLog(
+        'ADD_ADMIN',
+        'auth',
+        `Admin baru diajukan dan didaftarkan: ${cleanEmail}`,
+        `Nama: ${newAdminItem.name}, Peran: ${role}, Diajukan oleh: ${newAdminItem.addedBy}`,
+        currentUser || undefined
+      ).catch(() => {});
+
+      return {
+        success: true,
+        message: `Akun Google (${cleanEmail}) berhasil didaftarkan sebagai admin resmi! Pengguna ini sekarang dapat login via Google.`,
+      };
+    } catch (err: any) {
+      console.error('Gagal menambahkan admin ke Firestore:', err);
+      return {
+        success: false,
+        message: 'Gagal menyimpan ke cloud database: ' + (err?.message || 'Koneksi terganggu'),
+      };
+    }
+  };
+
+  // Remove / Revoke Admin Gmail
+  const removeAuthorizedAdmin = async (email: string): Promise<{ success: boolean; message: string }> => {
+    const cleanEmail = email.toLowerCase().trim();
+
+    if (cleanEmail === PRIMARY_SUPERADMIN_EMAIL.toLowerCase().trim()) {
+      return { success: false, message: 'Admin Utama tidak dapat dihapus.' };
+    }
+
+    const updatedList = authorizedAdmins.filter((a) => a.email.toLowerCase().trim() !== cleanEmail);
+
+    try {
+      const docRef = doc(db, FIRESTORE_COLLECTION, FIRESTORE_DOC_ADMINS);
+      await setDoc(
+        docRef,
+        {
+          primaryAdmin: PRIMARY_SUPERADMIN_EMAIL,
+          admins: updatedList,
+          updatedAt: new Date().toISOString(),
+        },
+        { merge: true }
+      );
+
+      setAuthorizedAdmins(updatedList);
+
+      recordAuditLog(
+        'REMOVE_ADMIN',
+        'auth',
+        `Izin akses admin dicabut untuk: ${cleanEmail}`,
+        `Dihapus oleh: ${currentUser?.email || currentUser?.name || 'Admin Utama'}`,
+        currentUser || undefined
+      ).catch(() => {});
+
+      return {
+        success: true,
+        message: `Izin akses admin untuk ${cleanEmail} berhasil dicabut. Akun ini tidak lagi dapat login ke portal.`,
+      };
+    } catch (err: any) {
+      console.error('Gagal menghapus admin dari Firestore:', err);
+      return {
+        success: false,
+        message: 'Gagal mencabut izin admin: ' + (err?.message || 'Koneksi terganggu'),
+      };
+    }
+  };
+
+  const isPrimaryAdmin =
+    (currentUser?.email?.toLowerCase().trim() === PRIMARY_SUPERADMIN_EMAIL.toLowerCase().trim()) ||
+    currentUser?.role === 'superadmin';
 
   return (
     <AuthContext.Provider
@@ -447,9 +703,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         currentUser,
         currentSession,
         cloudSyncStatus,
+        authorizedAdmins,
+        primaryAdminEmail: PRIMARY_SUPERADMIN_EMAIL,
+        isPrimaryAdmin,
         login,
+        loginWithGoogle,
         logout,
         updatePassword,
+        addAuthorizedAdmin,
+        removeAuthorizedAdmin,
         sessionRemainingMinutes,
       }}
     >

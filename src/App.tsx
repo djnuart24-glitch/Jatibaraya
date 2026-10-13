@@ -43,8 +43,24 @@ function MainApplication() {
 
     handleHashChange();
     window.addEventListener('hashchange', handleHashChange);
-    return () => window.removeEventListener('hashchange', handleHashChange);
-  }, []);
+
+    // Keyboard shortcut for pengurus: Ctrl + Shift + A (or Alt + Shift + A)
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.altKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'a') {
+        e.preventDefault();
+        setViewMode((prev) => (prev === 'admin' ? 'public' : 'admin'));
+        if (viewMode !== 'admin') {
+          window.location.hash = 'admin';
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      window.removeEventListener('hashchange', handleHashChange);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [viewMode]);
 
   const handleSelectTab = (tab: string) => {
     setActivePublicTab(tab);

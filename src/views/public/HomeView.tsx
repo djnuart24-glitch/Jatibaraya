@@ -251,7 +251,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
             </div>
 
             <p className="text-[11px] text-slate-400 mt-6 text-center italic">
-              *Angka statistik dikelola secara berkala oleh pengurus melalui Dashboard Admin.
+              *Data perkembangan keanggotaan dan kegiatan diperbarui secara berkala oleh pengurus.
             </p>
           </div>
         </div>
@@ -593,10 +593,10 @@ export const HomeView: React.FC<HomeViewProps> = ({
           {latestBahtsul.length === 0 ? (
             <div className="p-8 rounded-2xl bg-white/5 border border-white/10 text-center space-y-2">
               <p className="text-sm text-emerald-200 font-serif">
-                Dokumentasi Bahtsul Masail Jatibaraya dapat diakses dan diperbarui melalui Dashboard Admin.
+                Dokumentasi Bahtsul Masail Jatibaraya terdokumentasi dan diperbarui secara berkala.
               </p>
               <p className="text-xs text-slate-400">
-                Warga dan pengurus dapat mendaftarkan keputusan fiqih beserta ta&apos;bir kitab kuning.
+                Warta keputusan fiqih beserta ta&apos;bir kitab kuning akan segera dimuat di sini.
               </p>
             </div>
           ) : (

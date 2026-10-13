@@ -67,7 +67,7 @@ export const DocumentationView: React.FC = () => {
             Belum ada dokumentasi untuk kategori ini.
           </p>
           <p className="text-xs text-slate-400">
-            Foto kegiatan dapat diunggah pengurus melalui menu Dokumentasi di Dashboard Admin.
+            Foto dan dokumentasi kegiatan resmi akan segera dimuat di sini.
           </p>
         </div>
       ) : (

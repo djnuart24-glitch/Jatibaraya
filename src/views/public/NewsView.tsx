@@ -299,7 +299,7 @@ export const NewsView: React.FC = () => {
                 Belum ada berita yang dipublikasikan.
               </p>
               <p className="text-xs text-slate-400">
-                Pengurus dapat menambahkan berita terkini melalui Dashboard Admin.
+                Warta dan kabar terbaru seputar kegiatan akan segera dipublikasikan di sini.
               </p>
             </div>
           ) : (
@@ -398,7 +398,7 @@ export const NewsView: React.FC = () => {
                 Belum ada artikel yang dipublikasikan.
               </p>
               <p className="text-xs text-slate-400">
-                Santri dan alumni dapat menerbitkan tulisan reflektif melalui admin.
+                Karya tulis reflektif, artikel, dan opini santri akan segera hadir di sini.
               </p>
             </div>
           ) : (
@@ -498,7 +498,7 @@ export const NewsView: React.FC = () => {
                 Belum ada hasil bahtsul masail yang dipublikasikan.
               </p>
               <p className="text-xs text-slate-500 max-w-md mx-auto">
-                Pengurus dapat menginput hasil keputusan musyawarah fiqih, as-su&apos;al, al-jawab, serta ta&apos;bir kitab kuning melalui Dashboard Admin Jatibaraya.
+                Ketetapan musyawarah fiqih, as-su&apos;al, al-jawab, serta ta&apos;bir kutubul mu&apos;tabarah akan segera dimuat di sini.
               </p>
             </div>
           ) : (

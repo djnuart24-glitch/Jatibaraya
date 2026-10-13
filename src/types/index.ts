@@ -146,8 +146,28 @@ export interface AdminUser {
   id: string;
   username: string;
   name: string;
+  email?: string;
+  photoURL?: string;
   role: 'superadmin' | 'admin';
   lastLogin?: string;
+  loginMethod?: 'google' | 'password';
+}
+
+export interface AuthorizedAdminEmail {
+  id: string;
+  email: string;
+  name: string;
+  role: 'superadmin' | 'admin';
+  addedBy: string; // email of the person who added this admin (e.g. jatibaraya1910@gmail.com)
+  addedAt: string; // ISO date string
+  status: 'active' | 'suspended';
+  notes?: string;
+}
+
+export interface AuthorizedAdminsDoc {
+  primaryAdmin: string; // 'jatibaraya1910@gmail.com'
+  admins: AuthorizedAdminEmail[];
+  updatedAt: string;
 }
 
 export type AuditLogCategory =

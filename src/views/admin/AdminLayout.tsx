@@ -19,6 +19,7 @@ import { AdminSocialView } from './AdminSocialView';
 import { AdminSettingsView } from './AdminSettingsView';
 import { AdminAuditView } from './AdminAuditView';
 import { AdminVisitorsView } from './AdminVisitorsView';
+import { AdminUsersView } from './AdminUsersView';
 import { Globe, Menu, ShieldCheck, Cloud, RefreshCw } from 'lucide-react';
 
 interface AdminLayoutProps {
@@ -78,6 +79,8 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ onViewPublic }) => {
         return <AdminSocialView />;
       case 'pengaturan':
         return <AdminSettingsView />;
+      case 'admin-users':
+        return <AdminUsersView />;
       case 'audit':
         return <AdminAuditView />;
       case 'pengunjung':
@@ -175,14 +178,24 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ onViewPublic }) => {
             </button>
 
             <div className="flex items-center gap-2 pl-3 border-l border-slate-200 text-xs text-slate-600">
-              <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-900 flex items-center justify-center font-bold">
-                <ShieldCheck className="w-4 h-4 text-emerald-700" />
-              </div>
+              {currentUser?.photoURL ? (
+                <img
+                  src={currentUser.photoURL}
+                  alt={currentUser.name}
+                  className="w-8 h-8 rounded-xl object-cover border border-emerald-300"
+                />
+              ) : (
+                <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-900 flex items-center justify-center font-bold">
+                  <ShieldCheck className="w-4 h-4 text-emerald-700" />
+                </div>
+              )}
               <div className="hidden md:block text-left">
-                <span className="font-bold text-slate-800 block text-[11px]">
+                <span className="font-bold text-slate-800 block text-[11px] truncate max-w-[130px]">
                   {currentUser?.name || 'Pengurus Jatibaraya'}
                 </span>
-                <span className="text-[10px] text-slate-400 font-mono">Administrator</span>
+                <span className="text-[10px] text-slate-400 font-mono block truncate max-w-[130px]">
+                  {currentUser?.email ? currentUser.email : currentUser?.role === 'superadmin' ? 'Super Admin' : 'Admin'}
+                </span>
               </div>
             </div>
           </div>

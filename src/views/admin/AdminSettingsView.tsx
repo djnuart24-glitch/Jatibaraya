@@ -347,26 +347,17 @@ export const AdminSettingsView: React.FC = () => {
           </span>
         </div>
 
-        <p className="text-xs text-slate-500">
-          Pembaruan kata sandi di sini langsung disinkronkan ke database cloud. Seluruh perangkat dan laptop pengurus yang mengakses portal CMS akan otomatis menggunakan kata sandi baru.
-        </p>
-
-        {passwordNotice && (
-          <div
-            className={`p-3.5 rounded-xl text-xs font-semibold flex items-center gap-2 ${
-              passwordNotice.isError
-                ? 'bg-red-50 text-red-800 border border-red-200'
-                : 'bg-emerald-50 text-emerald-900 border border-emerald-200'
-            }`}
-          >
-            {passwordNotice.isError ? (
-              <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0" />
-            ) : (
-              <CheckCircle2 className="w-4 h-4 text-emerald-700 flex-shrink-0" />
-            )}
-            <span>{passwordNotice.text}</span>
+        <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-xs text-amber-900 flex items-start gap-2.5">
+          <KeyRound className="w-4 h-4 text-amber-700 flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="font-semibold text-slate-900">
+              Kata Sandi Resmi Diperbarui: <span className="font-mono text-emerald-800 bg-white px-2 py-0.5 rounded border border-amber-300">Jatibaraya1910!</span>
+            </p>
+            <p className="text-[11px] text-amber-800 mt-0.5">
+              Jika lupa kata sandi lama, gunakan sandi di atas. Untuk keamanan lebih ketat, gunakan login dengan akun Google Gmail resmi pada menu <strong>15. Akses Admin (Gmail)</strong>.
+            </p>
           </div>
-        )}
+        </div>
 
         <form onSubmit={handleChangePassword} className="space-y-4 max-w-lg">
           <div className="space-y-1">
@@ -376,7 +367,7 @@ export const AdminSettingsView: React.FC = () => {
               required
               value={oldPassword}
               onChange={(e) => setOldPassword(e.target.value)}
-              placeholder="Masukkan kata sandi lama (cth: jatibaraya2026 atau admin123)"
+              placeholder="Masukkan kata sandi saat ini (cth: Jatibaraya1910!)"
               className="w-full px-4 py-2 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-hidden"
             />
           </div>

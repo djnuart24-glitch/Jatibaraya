@@ -18,6 +18,7 @@ import {
   LogOut,
   Globe,
   Activity,
+  Users,
 } from 'lucide-react';
 import { JatibarayaLogo } from '../common/JatibarayaLogo';
 
@@ -53,8 +54,9 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
     { id: 'kontak', label: '12. Kontak', icon: Phone },
     { id: 'sosial', label: '13. Media Sosial', icon: Share2 },
     { id: 'pengaturan', label: '14. Pengaturan', icon: Settings },
-    { id: 'audit', label: '15. Log Aktivitas', icon: ShieldAlert },
-    { id: 'pengunjung', label: '16. Pantau Pengunjung', icon: Activity },
+    { id: 'admin-users', label: '15. Akses Admin (Gmail)', icon: Users },
+    { id: 'audit', label: '16. Log Aktivitas', icon: ShieldAlert },
+    { id: 'pengunjung', label: '17. Pantau Pengunjung', icon: Activity },
   ];
 
   return (
